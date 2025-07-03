@@ -25,7 +25,7 @@ variable "subnet_cidr_public" {
 variable "subnet_cidr_private" {
   description = "CIDR blocks for private subnets"
   type        = list(string)
-  default     = ["10.20.20.32/28", "10.20.20.64/28"]
+  default     = ["10.20.20.32/28", "10.20.20.48/28"]
 }
 
 variable "github_app_id" {
