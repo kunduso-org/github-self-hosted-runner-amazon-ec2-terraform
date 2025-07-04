@@ -70,7 +70,8 @@ variable "runner_desired_capacity" {
   default     = 2
 }
 
-variable "github_repository" {
-  description = "GitHub repository to register runners with (format: owner/repo)"
+variable "github_username" {
+  description = "GitHub username for account-level runners"
   type        = string
+  default     = "kunduso"
 }
