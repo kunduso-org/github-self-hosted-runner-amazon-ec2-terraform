@@ -60,7 +60,7 @@ resource "aws_iam_instance_profile" "github_runner" {
 resource "aws_security_group" "github_runner" {
   name        = "${var.name}-sg"
   description = "Security group for GitHub self-hosted runners"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = module.vpc.vpc.id
 
   egress {
     from_port   = 0
@@ -86,9 +86,9 @@ resource "aws_launch_template" "github_runner" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    secret_name     = aws_secretsmanager_secret.github_runner_credentials.name
-    region         = var.region
-    github_username = var.github_username
+    secret_name        = aws_secretsmanager_secret.github_runner_credentials.name
+    region            = var.region
+    github_repository = var.github_repository
   }))
 
   tag_specifications {
@@ -101,7 +101,7 @@ resource "aws_launch_template" "github_runner" {
 
 resource "aws_autoscaling_group" "github_runner" {
   name                = "${var.name}-asg"
-  vpc_zone_identifier = module.vpc.private_subnet_ids
+  vpc_zone_identifier = module.vpc.private_subnets.*.id
   target_group_arns   = []
   health_check_type   = "EC2"
   health_check_grace_period = 300
@@ -112,8 +112,16 @@ resource "aws_autoscaling_group" "github_runner" {
 
   launch_template {
     id      = aws_launch_template.github_runner.id
-    version = "$Latest"
+    version = aws_launch_template.github_runner.latest_version
   }
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 0
+      skip_matching = true
+    }
+    triggers = ["launch_template"]
+    }
 
   tag {
     key                 = "Name"
