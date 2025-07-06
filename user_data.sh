@@ -90,10 +90,10 @@ GITHUB_TOKEN=$(cat /tmp/github_token) || { echo "$(date): ERROR - Failed to read
 rm /tmp/github_token
 echo "$(date): GitHub App JWT token generated successfully"
 
-# Get registration token for specific repository
-echo "$(date): Getting registration token for GitHub repository"
-REPO_URL="https://github.com/${github_repository}"
-REG_TOKEN=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${github_repository}/actions/runners/registration-token" | jq -r '.token') || { echo "$(date): ERROR - Failed to get registration token"; exit 1; }
+# Get registration token for organization
+echo "$(date): Getting registration token for GitHub organization"
+ORG_URL="https://github.com/${github_organization}"
+REG_TOKEN=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/orgs/${github_organization}/actions/runners/registration-token" | jq -r '.token') || { echo "$(date): ERROR - Failed to get registration token"; exit 1; }
 
 if [ "$REG_TOKEN" = "null" ] || [ -z "$REG_TOKEN" ]; then
     echo "$(date): ERROR - Registration token is null or empty"
@@ -103,7 +103,7 @@ echo "$(date): Registration token obtained successfully"
 
 # Configure and start runner
 echo "$(date): Configuring GitHub runner"
-sudo -u runner ./config.sh --url "$REPO_URL" --token "$REG_TOKEN" --name "$(hostname)" --work _work --replace --unattended || { echo "$(date): ERROR - Failed to configure runner"; exit 1; }
+sudo -u runner ./config.sh --url "$ORG_URL" --token "$REG_TOKEN" --name "$(hostname)" --work _work --replace --unattended || { echo "$(date): ERROR - Failed to configure runner"; exit 1; }
 echo "$(date): GitHub runner configured successfully"
 
 echo "$(date): Starting GitHub runner"

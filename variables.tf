@@ -70,8 +70,8 @@ variable "runner_desired_capacity" {
   default     = 2
 }
 
-variable "github_username" {
-  description = "GitHub username for account-level runners"
+variable "github_organization" {
+  description = "GitHub organization name"
   type        = string
-  default     = "kunduso"
+  default     = "kunduso-org"
 }
