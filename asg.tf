@@ -55,6 +55,12 @@ resource "aws_iam_policy" "github_runner" {
   })
 }
 
+# Add Session Manager permissions
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.github_runner.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 resource "aws_iam_role_policy_attachment" "github_runner" {
   role       = aws_iam_role.github_runner.name
   policy_arn = aws_iam_policy.github_runner.arn
