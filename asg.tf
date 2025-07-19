@@ -42,6 +42,14 @@ resource "aws_iam_policy" "github_runner" {
           "kms:DescribeKey"
         ]
         Resource = aws_kms_key.github_runner_secrets.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite"
+        ]
+        Resource = aws_efs_file_system.github_runner_work.arn
       }
     ]
   })
@@ -89,6 +97,7 @@ resource "aws_launch_template" "github_runner" {
     secret_name         = aws_secretsmanager_secret.github_runner_credentials.name
     region              = var.region
     github_organization = var.github_organization
+    efs_dns_name        = aws_efs_file_system.github_runner_work.dns_name
   }))
 
   tag_specifications {
