@@ -11,9 +11,16 @@ echo "$(date): Starting GitHub runner setup"
 # Update system
 echo "$(date): Updating system packages"
 apt-get update || { echo "$(date): ERROR - Failed to update packages"; exit 1; }
-apt-get install -y curl jq awscli python3-pip || { echo "$(date): ERROR - Failed to install packages"; exit 1; }
+apt-get install -y curl jq awscli python3-pip amazon-efs-utils nfs-common || { echo "$(date): ERROR - Failed to install packages"; exit 1; }
 pip3 install PyJWT requests || { echo "$(date): ERROR - Failed to install Python packages"; exit 1; }
 echo "$(date): System packages updated successfully"
+
+# Setup EFS mount
+echo "$(date): Setting up EFS mount"
+mkdir -p /home/runner/_work || { echo "$(date): ERROR - Failed to create work directory"; exit 1; }
+echo "${efs_dns_name}:/ /home/runner/_work nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
+mount /home/runner/_work || { echo "$(date): ERROR - Failed to mount EFS"; exit 1; }
+echo "$(date): EFS mounted successfully"
 
 # Install Docker
 echo "$(date): Installing Docker"
@@ -42,26 +49,42 @@ SECRET=$(aws secretsmanager get-secret-value --secret-id "${secret_name}" --regi
 APP_ID=$(echo $SECRET | jq -r '.app_id') || { echo "$(date): ERROR - Failed to parse app_id from secret"; exit 1; }
 INSTALLATION_ID=$(echo $SECRET | jq -r '.installation_id') || { echo "$(date): ERROR - Failed to parse installation_id from secret"; exit 1; }
 PRIVATE_KEY=$(echo $SECRET | jq -r '.private_key') || { echo "$(date): ERROR - Failed to parse private_key from secret"; exit 1; }
+
+# For debugging (showing only non-sensitive data)
+echo "$(date): App ID: $APP_ID"
+echo "$(date): Installation ID: $INSTALLATION_ID"
+echo "$(date): Organization: ${github_organization}"
 echo "$(date): GitHub credentials retrieved successfully"
 
 # Generate JWT token for GitHub App authentication
 echo "$(date): Generating GitHub App JWT token"
+
+# Export variables for Python to use
+export APP_ID_VAR="$APP_ID"
+export INSTALLATION_ID_VAR="$INSTALLATION_ID"
+export PRIVATE_KEY_VAR="$PRIVATE_KEY"
+
 python3 -c "
 import jwt
 import time
 import json
 import requests
 import sys
+import os
 
 try:
+    # Get variables from environment
+    app_id = os.environ['APP_ID_VAR']
+    installation_id = os.environ['INSTALLATION_ID_VAR']
+    private_key = os.environ['PRIVATE_KEY_VAR']
+    
     # Create JWT
     payload = {
         'iat': int(time.time()),
         'exp': int(time.time()) + 600,
-        'iss': '$APP_ID'
+        'iss': app_id
     }
     
-    private_key = '''$PRIVATE_KEY'''
     token = jwt.encode(payload, private_key, algorithm='RS256')
     
     # Get installation access token
@@ -71,7 +94,7 @@ try:
     }
     
     response = requests.post(
-        f'https://api.github.com/app/installations/$INSTALLATION_ID/access_tokens',
+        f'https://api.github.com/app/installations/{installation_id}/access_tokens',
         headers=headers
     )
     
@@ -103,7 +126,8 @@ echo "$(date): Registration token obtained successfully"
 
 # Configure and start runner
 echo "$(date): Configuring GitHub runner"
-sudo -u runner ./config.sh --url "$ORG_URL" --token "$REG_TOKEN" --name "$(hostname)" --work _work --replace --unattended || { echo "$(date): ERROR - Failed to configure runner"; exit 1; }
+chown -R runner:runner /home/runner/_work || { echo "$(date): ERROR - Failed to set permissions on work directory"; exit 1; }
+sudo -u runner ./config.sh --url "$ORG_URL" --token "$REG_TOKEN" --name "$(hostname)" --work /home/runner/_work --replace --unattended || { echo "$(date): ERROR - Failed to configure runner"; exit 1; }
 echo "$(date): GitHub runner configured successfully"
 
 echo "$(date): Starting GitHub runner"
