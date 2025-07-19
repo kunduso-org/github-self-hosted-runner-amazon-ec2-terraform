@@ -32,14 +32,15 @@ resource "aws_kms_key" "github_runner_secrets" {
 }
 
 resource "aws_kms_alias" "github_runner_secrets" {
-  name          = "alias/${var.name}-secrets"
+  name          = "alias/${var.name}-secret"
   target_key_id = aws_kms_key.github_runner_secrets.key_id
 }
 
 resource "aws_secretsmanager_secret" "github_runner_credentials" {
-  name        = "${var.name}-credentials"
-  description = "GitHub App credentials for self-hosted runners"
-  kms_key_id  = aws_kms_key.github_runner_secrets.arn
+  name                    = "${var.name}-credentials-v2"
+  description             = "GitHub App credentials for self-hosted runners"
+  kms_key_id              = aws_kms_key.github_runner_secrets.arn
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "github_runner_credentials" {
