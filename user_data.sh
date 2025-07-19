@@ -8,10 +8,46 @@ exec 2>&1
 
 echo "$(date): Starting GitHub runner setup"
 
+# Setup CloudWatch logging immediately
+echo "$(date): Setting up CloudWatch logging"
+apt-get update -qq && apt-get install -y -qq awscli curl jq
+
+# Get instance ID
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+echo "$(date): Instance ID: $INSTANCE_ID"
+
+# Function to send logs to CloudWatch
+send_logs() {
+  # Create log stream if it doesn't exist
+  aws logs create-log-stream \
+    --log-group-name "${log_group_name}" \
+    --log-stream-name "$INSTANCE_ID-setup" \
+    --region "${region}" || true
+  
+  # Get log content and timestamp
+  local content=$(cat $LOG_FILE | sed 's/"/\\"/g')
+  local timestamp=$(date +%s000)
+  
+  # Create JSON for log events
+  echo "{\"logEvents\": [{\"timestamp\": $timestamp, \"message\": \"$content\"}]}" > /tmp/log-events.json
+  
+  # Send logs
+  aws logs put-log-events \
+    --log-group-name "${log_group_name}" \
+    --log-stream-name "$INSTANCE_ID-setup" \
+    --log-events file:///tmp/log-events.json \
+    --region "${region}" || true
+    
+  echo "$(date): Logs sent to CloudWatch"
+}
+
+# Send logs every minute in background
+(while true; do send_logs; sleep 60; done) &
+
 # Update system
 echo "$(date): Updating system packages"
 apt-get update || { echo "$(date): ERROR - Failed to update packages"; exit 1; }
-apt-get install -y curl jq awscli python3-pip amazon-efs-utils nfs-common || { echo "$(date): ERROR - Failed to install packages"; exit 1; }
+apt-get install -y python3-pip amazon-efs-utils nfs-common || { echo "$(date): ERROR - Failed to install packages"; exit 1; }
 pip3 install PyJWT requests || { echo "$(date): ERROR - Failed to install Python packages"; exit 1; }
 echo "$(date): System packages updated successfully"
 
@@ -44,12 +80,6 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF'
             "file_path": "/home/runner/_diag/*.log",
             "log_group_name": "${log_group_name}",
             "log_stream_name": "{instance_id}-diag",
-            "timezone": "UTC"
-          },
-          {
-            "file_path": "/home/runner/_work/_diag/*.log",
-            "log_group_name": "${log_group_name}",
-            "log_stream_name": "{instance_id}-work-diag",
             "timezone": "UTC"
           }
         ]
@@ -141,6 +171,7 @@ try:
         'Accept': 'application/vnd.github.v3+json'
     }
     
+    print(f'Making request to: https://api.github.com/app/installations/{installation_id}/access_tokens', file=sys.stderr)
     response = requests.post(
         f'https://api.github.com/app/installations/{installation_id}/access_tokens',
         headers=headers
@@ -161,13 +192,28 @@ GITHUB_TOKEN=$(cat /tmp/github_token) || { echo "$(date): ERROR - Failed to read
 rm /tmp/github_token
 echo "$(date): GitHub App JWT token generated successfully"
 
+# Test connectivity to GitHub API
+echo "$(date): Testing connectivity to GitHub API"
+curl -s https://api.github.com/zen
+echo "$(date): GitHub API connectivity test completed"
+
 # Get registration token for organization
 echo "$(date): Getting registration token for GitHub organization"
 ORG_URL="https://github.com/${github_organization}"
-REG_TOKEN=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/orgs/${github_organization}/actions/runners/registration-token" | jq -r '.token') || { echo "$(date): ERROR - Failed to get registration token"; exit 1; }
+echo "$(date): Organization URL: $ORG_URL"
+echo "$(date): GitHub Token length: ${#GITHUB_TOKEN}"
+
+# Debug API call
+echo "$(date): Making API call for registration token"
+CURL_RESPONSE=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/orgs/${github_organization}/actions/runners/registration-token")
+echo "$(date): API response: $(echo $CURL_RESPONSE | jq -c .)"
+
+REG_TOKEN=$(echo "$CURL_RESPONSE" | jq -r '.token')
 
 if [ "$REG_TOKEN" = "null" ] || [ -z "$REG_TOKEN" ]; then
     echo "$(date): ERROR - Registration token is null or empty"
+    echo "$(date): Full API response: $CURL_RESPONSE"
+    send_logs
     exit 1
 fi
 echo "$(date): Registration token obtained successfully"
@@ -175,7 +221,7 @@ echo "$(date): Registration token obtained successfully"
 # Configure and start runner
 echo "$(date): Configuring GitHub runner"
 chown -R runner:runner /home/runner/_work || { echo "$(date): ERROR - Failed to set permissions on work directory"; exit 1; }
-sudo -u runner ./config.sh --url "$ORG_URL" --token "$REG_TOKEN" --name "$(hostname)" --work /home/runner/_work --replace --unattended || { echo "$(date): ERROR - Failed to configure runner"; exit 1; }
+sudo -u runner ./config.sh --url "$ORG_URL" --token "$REG_TOKEN" --name "$INSTANCE_ID" --work /home/runner/_work --replace --unattended || { echo "$(date): ERROR - Failed to configure runner"; exit 1; }
 echo "$(date): GitHub runner configured successfully"
 
 echo "$(date): Starting GitHub runner"
@@ -187,5 +233,8 @@ echo "$(date): Installing runner as service"
 ./svc.sh install runner || { echo "$(date): ERROR - Failed to install runner service"; exit 1; }
 ./svc.sh start || { echo "$(date): ERROR - Failed to start runner service"; exit 1; }
 echo "$(date): Runner service installed and started successfully"
+
+# Final log send
+send_logs
 
 echo "$(date): GitHub runner setup completed successfully"
