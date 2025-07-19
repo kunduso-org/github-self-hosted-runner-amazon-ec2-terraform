@@ -8,16 +8,27 @@ exec 2>&1
 
 echo "$(date): Starting GitHub runner setup"
 
+# Get instance ID for runner naming
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+
 # Update system
 echo "$(date): Updating system packages"
 apt-get update
-apt-get install -y curl jq awscli python3-pip amazon-efs-utils nfs-common
+apt-get install -y curl jq awscli python3-pip git binutils nfs-common
 pip3 install PyJWT requests
 echo "$(date): System packages updated successfully"
 
+# Install amazon-efs-utils from GitHub
+echo "$(date): Installing amazon-efs-utils from GitHub"
+cd /tmp
+git clone https://github.com/aws/efs-utils
+cd efs-utils
+./build-deb.sh
+apt-get -y install ./build/amazon-efs-utils*deb
+echo "$(date): amazon-efs-utils installed successfully"
+
 # Setup CloudWatch logging
 echo "$(date): Setting up CloudWatch logging"
-INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 
 # Install CloudWatch Logs agent
 curl -o /tmp/amazon-cloudwatch-agent.deb https://s3.amazonaws.com/amazoncloudwatch-agent/debian/amd64/latest/amazon-cloudwatch-agent.deb
@@ -99,7 +110,7 @@ echo "$(date): GitHub credentials retrieved successfully"
 echo "$(date): Generating GitHub App JWT token"
 
 # Create Python script for JWT generation
-cat > /tmp/jwt_script.py <<EOF
+cat > /tmp/jwt_script.py <<EOFPYTHON
 import jwt
 import time
 import json
@@ -108,9 +119,9 @@ import sys
 import os
 
 try:
-    app_id = '${APP_ID}'
-    installation_id = '${INSTALLATION_ID}'
-    private_key = """${PRIVATE_KEY}"""
+    app_id = os.environ['APP_ID']
+    installation_id = os.environ['INSTALLATION_ID']
+    private_key = os.environ['PRIVATE_KEY']
     
     payload = {
         'iat': int(time.time()),
@@ -139,7 +150,12 @@ try:
 except Exception as e:
     print('ERROR: ' + str(e))
     sys.exit(1)
-EOF
+EOFPYTHON
+
+# Pass variables to Python script via environment
+export APP_ID="$APP_ID"
+export INSTALLATION_ID="$INSTALLATION_ID"
+export PRIVATE_KEY="$PRIVATE_KEY"
 
 GITHUB_TOKEN=$(python3 /tmp/jwt_script.py)
 rm /tmp/jwt_script.py
@@ -151,6 +167,8 @@ ORG_URL="https://github.com/${github_organization}"
 echo "$(date): Organization URL: $ORG_URL"
 
 # Get registration token
+echo "$(date): Getting registration token for GitHub organization"
+ORG_URL="https://github.com/${github_organization}"
 REG_TOKEN=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/orgs/${github_organization}/actions/runners/registration-token" | jq -r '.token')
 
 if [ "$REG_TOKEN" = "null" ] || [ -z "$REG_TOKEN" ]; then
