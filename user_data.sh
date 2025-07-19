@@ -15,6 +15,54 @@ apt-get install -y curl jq awscli python3-pip amazon-efs-utils nfs-common || { e
 pip3 install PyJWT requests || { echo "$(date): ERROR - Failed to install Python packages"; exit 1; }
 echo "$(date): System packages updated successfully"
 
+# Install CloudWatch Logs agent
+echo "$(date): Installing CloudWatch Logs agent"
+curl -o /tmp/amazon-cloudwatch-agent.deb https://s3.amazonaws.com/amazoncloudwatch-agent/debian/amd64/latest/amazon-cloudwatch-agent.deb
+dpkg -i /tmp/amazon-cloudwatch-agent.deb
+rm /tmp/amazon-cloudwatch-agent.deb
+
+# Configure CloudWatch Logs agent
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF'
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/github-runner-setup.log",
+            "log_group_name": "${log_group_name}",
+            "log_stream_name": "{instance_id}-setup",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/github-runner.log",
+            "log_group_name": "${log_group_name}",
+            "log_stream_name": "{instance_id}-runner",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/home/runner/_diag/*.log",
+            "log_group_name": "${log_group_name}",
+            "log_stream_name": "{instance_id}-diag",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/home/runner/_work/_diag/*.log",
+            "log_group_name": "${log_group_name}",
+            "log_stream_name": "{instance_id}-work-diag",
+            "timezone": "UTC"
+          }
+        ]
+      }
+    }
+  }
+}
+EOF
+
+# Start CloudWatch agent
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+echo "$(date): CloudWatch Logs agent configured and started"
+
 # Setup EFS mount
 echo "$(date): Setting up EFS mount"
 mkdir -p /home/runner/_work || { echo "$(date): ERROR - Failed to create work directory"; exit 1; }
