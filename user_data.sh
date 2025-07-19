@@ -171,20 +171,20 @@ try:
         'Accept': 'application/vnd.github.v3+json'
     }
     
-    print(f'Making request to: https://api.github.com/app/installations/{installation_id}/access_tokens', file=sys.stderr)
+    print('Making request to: https://api.github.com/app/installations/' + installation_id + '/access_tokens', file=sys.stderr)
     response = requests.post(
-        f'https://api.github.com/app/installations/{installation_id}/access_tokens',
+        'https://api.github.com/app/installations/' + installation_id + '/access_tokens',
         headers=headers
     )
     
     if response.status_code != 201:
-        print(f'ERROR: Failed to get access token. Status: {response.status_code}, Response: {response.text}', file=sys.stderr)
+        print('ERROR: Failed to get access token. Status: ' + str(response.status_code) + ', Response: ' + response.text, file=sys.stderr)
         sys.exit(1)
     
     access_token = response.json()['token']
     print(access_token)
 except Exception as e:
-    print(f'ERROR: Exception in JWT generation: {str(e)}', file=sys.stderr)
+    print('ERROR: Exception in JWT generation: ' + str(e), file=sys.stderr)
     sys.exit(1)
 " > /tmp/github_token || { echo "$(date): ERROR - Failed to generate JWT token"; exit 1; }
 
