@@ -98,6 +98,7 @@ resource "aws_launch_template" "github_runner" {
     region              = var.region
     github_organization = var.github_organization
     efs_dns_name        = aws_efs_file_system.github_runner_work.dns_name
+    log_group_name      = aws_cloudwatch_log_group.github_runner.name
   }))
 
   tag_specifications {
