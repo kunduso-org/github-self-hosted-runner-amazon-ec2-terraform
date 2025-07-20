@@ -11,7 +11,7 @@ provider "aws" {
   region = var.region
   default_tags {
     tags = {
-      Source = "https://github.com/github-self-hosted-runner-amazon-ec2-terraform"
+      Source = "https://github.com/kunduso-org/github-self-hosted-runner-amazon-ec2-terraform"
     }
   }
 }
