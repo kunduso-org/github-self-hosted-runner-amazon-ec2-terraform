@@ -18,14 +18,10 @@ apt-get install -y curl jq awscli python3-pip git binutils nfs-common
 pip3 install PyJWT requests
 echo "$(date): System packages updated successfully"
 
-# Install amazon-efs-utils from GitHub
-echo "$(date): Installing amazon-efs-utils from GitHub"
-cd /tmp
-git clone https://github.com/aws/efs-utils
-cd efs-utils
-./build-deb.sh
-apt-get -y install ./build/amazon-efs-utils*deb
-echo "$(date): amazon-efs-utils installed successfully"
+# Install NFS client for EFS mounting
+echo "$(date): Installing NFS client"
+apt-get -y install nfs-common
+echo "$(date): NFS client installed successfully"
 
 # Setup CloudWatch logging
 echo "$(date): Setting up CloudWatch logging"
