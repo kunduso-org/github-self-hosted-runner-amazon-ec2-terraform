@@ -8,8 +8,9 @@ exec 2>&1
 
 echo "$(date): Starting GitHub runner setup"
 
-# Get instance ID for runner naming
-INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+# Get instance ID for runner naming using IMDSv2
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id)
 
 # Update system
 echo "$(date): Updating system packages"
