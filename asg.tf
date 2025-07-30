@@ -96,8 +96,8 @@ resource "aws_launch_template" "github_runner" {
   vpc_security_group_ids = [aws_security_group.github_runner.id]
 
   metadata_options {
-    http_endpoint = "enabled"
-    http_tokens   = "required"
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
     http_put_response_hop_limit = 1
   }
 
