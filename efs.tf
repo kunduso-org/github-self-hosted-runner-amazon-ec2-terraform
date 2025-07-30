@@ -19,14 +19,17 @@ resource "aws_security_group" "efs" {
   description = "Allow NFS traffic from runner instances"
   vpc_id      = module.vpc.vpc.id
 
-  ingress {
-    from_port       = 2049
-    to_port         = 2049
-    protocol        = "tcp"
-    security_groups = [aws_security_group.github_runner.id]
-  }
-
   tags = {
     Name = "${var.name}-efs-sg"
   }
+}
+
+resource "aws_security_group_rule" "efs_ingress" {
+  type                     = "ingress"
+  from_port                = 2049
+  to_port                  = 2049
+  protocol                 = "tcp"
+  description              = "Allow NFS traffic from GitHub runner instances"
+  source_security_group_id = aws_security_group.github_runner.id
+  security_group_id        = aws_security_group.efs.id
 }
