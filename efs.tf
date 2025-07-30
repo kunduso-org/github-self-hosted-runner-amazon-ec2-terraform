@@ -1,7 +1,7 @@
 resource "aws_efs_file_system" "github_runner_work" {
   creation_token = "${var.name}-work-dir"
   encrypted      = true
-  
+
   tags = {
     Name = "${var.name}-work-dir"
   }

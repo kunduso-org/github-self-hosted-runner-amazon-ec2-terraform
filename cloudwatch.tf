@@ -1,7 +1,7 @@
 resource "aws_cloudwatch_log_group" "github_runner" {
   name              = "/github-runner/${var.name}"
   retention_in_days = 30
-  
+
   tags = {
     Name = "${var.name}-logs"
   }
