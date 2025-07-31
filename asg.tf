@@ -76,16 +76,19 @@ resource "aws_security_group" "github_runner" {
   description = "Security group for GitHub self-hosted runners"
   vpc_id      = module.vpc.vpc.id
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = {
     Name = "${var.name}-sg"
   }
+}
+
+resource "aws_security_group_rule" "github_runner_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Allow all outbound traffic"
+  security_group_id = aws_security_group.github_runner.id
 }
 
 resource "aws_launch_template" "github_runner" {
