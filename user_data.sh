@@ -151,38 +151,58 @@ import requests
 import sys
 import os
 
+print('DEBUG: Starting JWT script', file=sys.stderr)
+
 try:
+    print('DEBUG: Reading environment variables', file=sys.stderr)
     app_id = os.environ['APP_ID']
     installation_id = os.environ['INSTALLATION_ID']
     private_key = os.environ['PRIVATE_KEY']
     
+    # Convert escaped newlines to actual newlines
+    private_key = private_key.replace('\\n', '\n')
+    
+    print('DEBUG: App ID: ' + app_id, file=sys.stderr)
+    print('DEBUG: Installation ID: ' + installation_id, file=sys.stderr)
+    print('DEBUG: Private key length: ' + str(len(private_key)), file=sys.stderr)
+    
+    print('DEBUG: Creating JWT payload', file=sys.stderr)
     payload = {
         'iat': int(time.time()),
         'exp': int(time.time()) + 600,
         'iss': app_id
     }
     
+    print('DEBUG: Encoding JWT token', file=sys.stderr)
     token = jwt.encode(payload, private_key, algorithm='RS256')
+    print('DEBUG: JWT token created successfully', file=sys.stderr)
     
+    print('DEBUG: Preparing API request headers', file=sys.stderr)
     headers = {
         'Authorization': 'Bearer ' + str(token),
         'Accept': 'application/vnd.github.v3+json'
     }
     
-    response = requests.post(
-        'https://api.github.com/app/installations/' + installation_id + '/access_tokens',
-        headers=headers
-    )
+    api_url = 'https://api.github.com/app/installations/' + installation_id + '/access_tokens'
+    print('DEBUG: Making request to: ' + api_url, file=sys.stderr)
+    
+    response = requests.post(api_url, headers=headers, timeout=30)
+    
+    print('DEBUG: API response status: ' + str(response.status_code), file=sys.stderr)
     
     if response.status_code != 201:
         print('ERROR: Failed to get access token. Status: ' + str(response.status_code))
         print('Response body: ' + response.text)
         sys.exit(1)
     
+    print('DEBUG: Parsing response JSON', file=sys.stderr)
     access_token = response.json()['token']
+    print('DEBUG: Access token obtained successfully', file=sys.stderr)
     print(access_token)
 except Exception as e:
-    print('ERROR: ' + str(e))
+    print('ERROR: ' + str(e), file=sys.stderr)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
     sys.exit(1)
 EOFPYTHON
 
@@ -192,15 +212,18 @@ export INSTALLATION_ID="$INSTALLATION_ID"
 export PRIVATE_KEY="$PRIVATE_KEY"
 
 echo "$(date): Executing JWT generation script..."
-GITHUB_TOKEN=$(python3 /tmp/jwt_script.py 2>&1)
-JWT_EXIT_CODE=$?
-rm /tmp/jwt_script.py
 
-if [ $JWT_EXIT_CODE -ne 0 ]; then
-    echo "$(date): ERROR - JWT generation failed with exit code $JWT_EXIT_CODE"
-    echo "$(date): JWT Error output: $GITHUB_TOKEN"
+# Run JWT script with timeout
+if ! timeout 60 python3 /tmp/jwt_script.py > /tmp/jwt_output.txt 2> /tmp/jwt_error.txt; then
+    JWT_EXIT_CODE=$?
+    echo "$(date): ERROR - JWT generation failed or timed out with exit code $JWT_EXIT_CODE"
+    echo "$(date): Check CloudWatch logs for detailed error information"
+    rm -f /tmp/jwt_script.py /tmp/jwt_output.txt /tmp/jwt_error.txt
     exit 1
 fi
+
+GITHUB_TOKEN=$(cat /tmp/jwt_output.txt)
+rm -f /tmp/jwt_script.py /tmp/jwt_output.txt /tmp/jwt_error.txt
 
 if [ -z "$GITHUB_TOKEN" ] || [ "$GITHUB_TOKEN" = "null" ]; then
     echo "$(date): ERROR - JWT token is empty or null"
@@ -223,7 +246,7 @@ echo "$(date): GitHub API response code: $HTTP_CODE"
 
 if [ "$HTTP_CODE" != "201" ]; then
     echo "$(date): ERROR - GitHub API request failed with HTTP code $HTTP_CODE"
-    echo "$(date): Response: $API_BODY"
+    echo "$(date): Check GitHub App permissions and installation"
     exit 1
 fi
 
@@ -231,7 +254,7 @@ REG_TOKEN=$(echo "$API_BODY" | jq -r '.token')
 
 if [ "$REG_TOKEN" = "null" ] || [ -z "$REG_TOKEN" ]; then
     echo "$(date): ERROR - Registration token is null or empty"
-    echo "$(date): Full API response: $API_BODY"
+    echo "$(date): GitHub API returned invalid response"
     exit 1
 fi
 echo "$(date): Registration token obtained successfully"
