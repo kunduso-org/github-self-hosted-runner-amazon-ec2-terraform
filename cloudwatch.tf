@@ -26,6 +26,17 @@ resource "aws_iam_policy" "cloudwatch_logs" {
           "${aws_cloudwatch_log_group.github_runner.arn}",
           "${aws_cloudwatch_log_group.github_runner.arn}:*"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.cloudwatch_kms_key.arn
       }
     ]
   })

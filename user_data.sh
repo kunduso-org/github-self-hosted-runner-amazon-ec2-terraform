@@ -8,6 +8,42 @@ exec 2>&1
 
 echo "$(date): Starting GitHub runner setup"
 
+# Network connectivity validation
+echo "$(date): Validating network connectivity..."
+retry_count=0
+max_retries=12  # 2 minutes total
+
+until curl -s --connect-timeout 5 https://aws.amazon.com > /dev/null; do
+    retry_count=$((retry_count + 1))
+    if [ $retry_count -ge $max_retries ]; then
+        echo "$(date): ERROR - Network connectivity failed after $max_retries attempts"
+        exit 1
+    fi
+    echo "$(date): Network not ready, waiting... (attempt $retry_count/$max_retries)"
+    sleep 10
+done
+
+echo "$(date): Network connectivity confirmed"
+
+# Test critical AWS services
+echo "$(date): Testing AWS services connectivity..."
+aws_services=(
+    "https://s3.${region}.amazonaws.com"
+    "https://secretsmanager.${region}.amazonaws.com"
+    "https://logs.${region}.amazonaws.com"
+)
+
+for service in "$${aws_services[@]}"; do
+    echo "$(date): Testing connectivity to $service..."
+    if ! curl -s --connect-timeout 10 "$service" > /dev/null; then
+        echo "$(date): WARNING - Cannot reach $service"
+    else
+        echo "$(date): Successfully connected to $service"
+    fi
+done
+
+echo "$(date): AWS services connectivity test completed"
+
 # Get instance ID for runner naming using IMDSv2
 TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id)
