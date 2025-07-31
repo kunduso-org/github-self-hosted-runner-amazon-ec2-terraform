@@ -33,7 +33,7 @@ aws_services=(
     "https://logs.${region}.amazonaws.com"
 )
 
-for service in "${aws_services[@]}"; do
+for service in "$${aws_services[@]}"; do
     echo "$(date): Testing connectivity to $service..."
     if ! curl -s --connect-timeout 10 "$service" > /dev/null; then
         echo "$(date): WARNING - Cannot reach $service"
