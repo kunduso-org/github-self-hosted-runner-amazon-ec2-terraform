@@ -30,6 +30,7 @@ data "aws_iam_policy_document" "github_runner_kms" {
 resource "aws_kms_key" "github_runner_secrets" {
   description             = "KMS key for GitHub runner secrets encryption"
   deletion_window_in_days = 7
+  enable_key_rotation     = true
   policy                  = data.aws_iam_policy_document.github_runner_kms.json
 }
 
