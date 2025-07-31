@@ -176,6 +176,7 @@ try:
     
     if response.status_code != 201:
         print('ERROR: Failed to get access token. Status: ' + str(response.status_code))
+        print('Response body: ' + response.text)
         sys.exit(1)
     
     access_token = response.json()['token']
@@ -190,8 +191,22 @@ export APP_ID="$APP_ID"
 export INSTALLATION_ID="$INSTALLATION_ID"
 export PRIVATE_KEY="$PRIVATE_KEY"
 
-GITHUB_TOKEN=$(python3 /tmp/jwt_script.py)
+echo "$(date): Executing JWT generation script..."
+GITHUB_TOKEN=$(python3 /tmp/jwt_script.py 2>&1)
+JWT_EXIT_CODE=$?
 rm /tmp/jwt_script.py
+
+if [ $JWT_EXIT_CODE -ne 0 ]; then
+    echo "$(date): ERROR - JWT generation failed with exit code $JWT_EXIT_CODE"
+    echo "$(date): JWT Error output: $GITHUB_TOKEN"
+    exit 1
+fi
+
+if [ -z "$GITHUB_TOKEN" ] || [ "$GITHUB_TOKEN" = "null" ]; then
+    echo "$(date): ERROR - JWT token is empty or null"
+    exit 1
+fi
+
 echo "$(date): GitHub App JWT token generated successfully"
 
 # Get registration token for organization
@@ -199,13 +214,24 @@ echo "$(date): Getting registration token for GitHub organization"
 ORG_URL="https://github.com/${github_organization}"
 echo "$(date): Organization URL: $ORG_URL"
 
-# Get registration token
-echo "$(date): Getting registration token for GitHub organization"
-ORG_URL="https://github.com/${github_organization}"
-REG_TOKEN=$(curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/orgs/${github_organization}/actions/runners/registration-token" | jq -r '.token')
+echo "$(date): Making API request to GitHub..."
+API_RESPONSE=$(curl -s -w "HTTP_CODE:%%{http_code}" -X POST -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/orgs/${github_organization}/actions/runners/registration-token")
+HTTP_CODE=$(echo "$API_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
+API_BODY=$(echo "$API_RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
+
+echo "$(date): GitHub API response code: $HTTP_CODE"
+
+if [ "$HTTP_CODE" != "201" ]; then
+    echo "$(date): ERROR - GitHub API request failed with HTTP code $HTTP_CODE"
+    echo "$(date): Response: $API_BODY"
+    exit 1
+fi
+
+REG_TOKEN=$(echo "$API_BODY" | jq -r '.token')
 
 if [ "$REG_TOKEN" = "null" ] || [ -z "$REG_TOKEN" ]; then
     echo "$(date): ERROR - Registration token is null or empty"
+    echo "$(date): Full API response: $API_BODY"
     exit 1
 fi
 echo "$(date): Registration token obtained successfully"
@@ -213,7 +239,15 @@ echo "$(date): Registration token obtained successfully"
 # Configure and start runner
 echo "$(date): Configuring GitHub runner"
 chown -R runner:runner /home/runner/_work
-sudo -u runner ./config.sh --url "$ORG_URL" --token "$REG_TOKEN" --name "$INSTANCE_ID" --work /home/runner/_work --labels "${region}" --replace --unattended
+echo "$(date): Running config.sh with parameters:"
+echo "$(date): URL: $ORG_URL"
+echo "$(date): Name: $INSTANCE_ID"
+echo "$(date): Labels: ${region}"
+
+if ! sudo -u runner ./config.sh --url "$ORG_URL" --token "$REG_TOKEN" --name "$INSTANCE_ID" --work /home/runner/_work --labels "${region}" --replace --unattended 2>&1; then
+    echo "$(date): ERROR - Runner configuration failed"
+    exit 1
+fi
 echo "$(date): GitHub runner configured successfully"
 
 echo "$(date): Starting GitHub runner"
@@ -222,8 +256,15 @@ echo "$(date): GitHub runner started in background"
 
 # Install runner as service
 echo "$(date): Installing runner as service"
-./svc.sh install runner
-./svc.sh start
+if ! ./svc.sh install runner 2>&1; then
+    echo "$(date): ERROR - Failed to install runner service"
+    exit 1
+fi
+
+if ! ./svc.sh start 2>&1; then
+    echo "$(date): ERROR - Failed to start runner service"
+    exit 1
+fi
 echo "$(date): Runner service installed and started successfully"
 
 echo "$(date): GitHub runner setup completed successfully"
