@@ -7,8 +7,23 @@ data "aws_iam_policy_document" "github_runner_kms" {
       type        = "AWS"
       identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
     }
-    actions   = ["kms:*"]
-    resources = ["*"]
+    actions = [
+      "kms:Create*",
+      "kms:Describe*",
+      "kms:Enable*",
+      "kms:List*",
+      "kms:Put*",
+      "kms:Update*",
+      "kms:Revoke*",
+      "kms:Disable*",
+      "kms:Get*",
+      "kms:Delete*",
+      "kms:TagResource",
+      "kms:UntagResource",
+      "kms:ScheduleKeyDeletion",
+      "kms:CancelKeyDeletion"
+    ]
+    resources = [aws_kms_key.github_runner_secrets.arn]
   }
 
   statement {
@@ -22,7 +37,7 @@ data "aws_iam_policy_document" "github_runner_kms" {
       "kms:Decrypt",
       "kms:DescribeKey"
     ]
-    resources = ["*"]
+    resources = [aws_kms_key.github_runner_secrets.arn]
   }
 }
 
