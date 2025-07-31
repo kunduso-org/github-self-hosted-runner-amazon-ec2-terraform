@@ -1,66 +1,51 @@
 
-data "aws_iam_policy_document" "github_runner_kms" {
-  statement {
-    sid    = "Enable IAM User Permissions"
-    effect = "Allow"
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
-    }
-    actions = [
-      "kms:Create*",
-      "kms:Describe*",
-      "kms:Enable*",
-      "kms:List*",
-      "kms:Put*",
-      "kms:Update*",
-      "kms:Revoke*",
-      "kms:Disable*",
-      "kms:Get*",
-      "kms:Delete*",
-      "kms:TagResource",
-      "kms:UntagResource",
-      "kms:ScheduleKeyDeletion",
-      "kms:CancelKeyDeletion"
-    ]
-    resources = ["*"]
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["secretsmanager.${var.region}.amazonaws.com"]
-    }
-  }
-
-  statement {
-    sid    = "Allow GitHub Runner Role"
-    effect = "Allow"
-    principals {
-      type        = "AWS"
-      identifiers = [aws_iam_role.github_runner.arn]
-    }
-    actions = [
-      "kms:Decrypt",
-      "kms:DescribeKey"
-    ]
-    resources = ["*"]
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["secretsmanager.${var.region}.amazonaws.com"]
-    }
-  }
-}
-
 resource "aws_kms_key" "github_runner_secrets" {
   description             = "KMS key for GitHub runner secrets encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
-  policy                  = data.aws_iam_policy_document.github_runner_kms.json
 }
 
 resource "aws_kms_alias" "github_runner_secrets" {
   name          = "alias/${var.name}-secret"
   target_key_id = aws_kms_key.github_runner_secrets.key_id
+}
+#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy
+resource "aws_kms_key_policy" "encrypt_secret" {
+  key_id = aws_kms_key.github_runner_secrets.id
+  policy = jsonencode({
+    Id = "encryption-rest"
+    Statement = [
+      {
+        Action = "kms:*"
+        Effect = "Allow"
+        Principal = {
+          AWS = "${local.principal_root_arn}"
+        }
+        Resource = "*"
+        Sid      = "Enable IAM User Permissions"
+      },
+      {
+        Effect : "Allow",
+        Principal : {
+          Service : "${local.principal_logs_arn}"
+        },
+        Action : [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*"
+        ],
+        Resource : "*",
+        Condition : {
+          ArnEquals : {
+            "kms:EncryptionContext:SecretARN" : [local.secret_arn]
+          }
+        }
+      }
+    ]
+    Version = "2012-10-17"
+  })
 }
 
 resource "aws_secretsmanager_secret" "github_runner_credentials" {

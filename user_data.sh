@@ -177,7 +177,7 @@ echo "$(date): Registration token obtained successfully"
 # Configure and start runner
 echo "$(date): Configuring GitHub runner"
 chown -R runner:runner /home/runner/_work
-sudo -u runner ./config.sh --url "$ORG_URL" --token "$REG_TOKEN" --name "$INSTANCE_ID" --work /home/runner/_work --replace --unattended
+sudo -u runner ./config.sh --url "$ORG_URL" --token "$REG_TOKEN" --name "$INSTANCE_ID" --work /home/runner/_work --labels "${region}" --replace --unattended
 echo "$(date): GitHub runner configured successfully"
 
 echo "$(date): Starting GitHub runner"
