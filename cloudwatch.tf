@@ -5,6 +5,7 @@ resource "aws_cloudwatch_log_group" "github_runner" {
   tags = {
     Name = "${var.name}-logs"
   }
+  depends_on = [aws_kms_key.cloudwatch_kms_key]
 }
 
 # Add permissions to IAM role
