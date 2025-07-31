@@ -1,6 +1,6 @@
 resource "aws_cloudwatch_log_group" "github_runner" {
   name              = "/github-runner/${var.name}"
-  retention_in_days = 356
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.cloudwatch_kms_key.arn
   tags = {
     Name = "${var.name}-logs"
