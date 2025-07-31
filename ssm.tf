@@ -31,6 +31,7 @@ data "aws_iam_policy_document" "ssm_kms" {
 resource "aws_kms_key" "ssm_parameters" {
   description             = "KMS key for SSM parameter encryption"
   deletion_window_in_days = 7
+  enable_key_rotation     = true
   policy                  = data.aws_iam_policy_document.ssm_kms.json
 }
 
