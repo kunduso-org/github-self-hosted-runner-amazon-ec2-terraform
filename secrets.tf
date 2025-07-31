@@ -23,7 +23,12 @@ data "aws_iam_policy_document" "github_runner_kms" {
       "kms:ScheduleKeyDeletion",
       "kms:CancelKeyDeletion"
     ]
-    resources = [aws_kms_key.github_runner_secrets.arn]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["secretsmanager.${var.region}.amazonaws.com"]
+    }
   }
 
   statement {
@@ -37,7 +42,12 @@ data "aws_iam_policy_document" "github_runner_kms" {
       "kms:Decrypt",
       "kms:DescribeKey"
     ]
-    resources = [aws_kms_key.github_runner_secrets.arn]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["secretsmanager.${var.region}.amazonaws.com"]
+    }
   }
 }
 
