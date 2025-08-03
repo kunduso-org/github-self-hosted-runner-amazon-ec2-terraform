@@ -1,11 +1,8 @@
-# Get current AWS account ID
-data "aws_caller_identity" "current" {}
-
 # GitHub Actions runner role for infrastructure provisioning
 resource "aws_iam_role" "github_actions_runner" {
-  name = "${var.name}-github-actions-runner-role"
-  max_session_duration = 1800  # 30 minutes
-  
+  name                 = "${var.name}-github-actions-runner-role"
+  max_session_duration = 3600 # 60 minutes, shortest possible session
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -18,7 +15,7 @@ resource "aws_iam_role" "github_actions_runner" {
         Condition = {
           StringEquals = {
             "aws:RequestedRegion" = var.region,
-            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+            "aws:SourceAccount"   = data.aws_caller_identity.current.account_id
           },
           StringLike = {
             "aws:userid" = "${aws_iam_role.github_runner.unique_id}:*"
@@ -32,7 +29,7 @@ resource "aws_iam_role" "github_actions_runner" {
 # State management permissions for GitHub Actions
 resource "aws_iam_policy" "github_actions_state" {
   name = "${var.name}-github-actions-state-policy"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -56,7 +53,7 @@ resource "aws_iam_policy" "github_actions_state" {
 # Core permissions for GitHub Actions infrastructure management
 resource "aws_iam_policy" "github_actions_core" {
   name = "${var.name}-github-actions-core-policy"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
