@@ -12,15 +12,7 @@ resource "aws_iam_role" "github_actions_runner" {
           AWS = aws_iam_role.github_runner.arn
         }
         Action = "sts:AssumeRole"
-        Condition = {
-          StringEquals = {
-            "aws:RequestedRegion" = var.region,
-            "aws:SourceAccount"   = data.aws_caller_identity.current.account_id
-          },
-          StringLike = {
-            "aws:userid" = "${aws_iam_role.github_runner.unique_id}:*"
-          }
-        }
+
       }
     ]
   })
