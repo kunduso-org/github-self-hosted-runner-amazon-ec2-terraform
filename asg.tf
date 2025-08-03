@@ -50,6 +50,13 @@ resource "aws_iam_policy" "github_runner" {
           "elasticfilesystem:ClientWrite"
         ]
         Resource = aws_efs_file_system.github_runner_work.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sts:AssumeRole"
+        ]
+        Resource = "arn:aws:iam::*:role/${var.name}-github-actions-runner-role"
       }
     ]
   })
