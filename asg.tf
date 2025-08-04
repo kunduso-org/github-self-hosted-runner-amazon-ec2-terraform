@@ -56,7 +56,7 @@ resource "aws_iam_policy" "github_runner" {
         Action = [
           "sts:AssumeRole"
         ]
-        Resource = "arn:aws:iam::*:role/${var.name}-github-actions-runner-role"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.name}-github-actions-runner-role"
       }
     ]
   })
