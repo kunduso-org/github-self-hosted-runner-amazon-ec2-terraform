@@ -51,7 +51,41 @@ resource "aws_iam_role_policy_attachment" "github_actions_state" {
   policy_arn = aws_iam_policy.github_actions_state.arn
 }
 
-resource "aws_iam_role_policy_attachment" "github_actions_admin" {
+# Core permissions for GitHub Actions infrastructure management
+resource "aws_iam_policy" "github_actions_core" {
+  name = "${var.name}-github-actions-core-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:*",
+          "vpc:*",
+          "iam:*",
+          "s3:*",
+          "kms:*",
+          "logs:*",
+          "secretsmanager:*",
+          "ssm:*",
+          "autoscaling:*",
+          "elasticfilesystem:*",
+          "sts:GetCallerIdentity",
+          "sts:AssumeRole"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.region
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions_core" {
   role       = aws_iam_role.github_actions_runner.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  policy_arn = aws_iam_policy.github_actions_core.arn
 }
