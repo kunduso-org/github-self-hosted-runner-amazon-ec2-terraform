@@ -297,4 +297,31 @@ if ! ./svc.sh start 2>&1; then
 fi
 echo "$(date): Runner service installed and started successfully"
 
+# Setup deregistration script
+echo "$(date): Setting up runner deregistration service"
+cp /tmp/deregister-runner.sh /usr/local/bin/deregister-runner.sh
+chmod +x /usr/local/bin/deregister-runner.sh
+
+# Create systemd service for deregistration
+cat > /etc/systemd/system/github-runner-deregister.service <<EOF
+[Unit]
+Description=GitHub Runner Deregistration
+DefaultDependencies=false
+Before=shutdown.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/bin/true
+ExecStop=/usr/local/bin/deregister-runner.sh
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable github-runner-deregister.service
+systemctl start github-runner-deregister.service
+echo "$(date): Deregistration service configured"
+
 echo "$(date): GitHub runner setup completed successfully"
