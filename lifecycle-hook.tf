@@ -1,12 +1,12 @@
 # Auto Scaling lifecycle hook for termination
 resource "aws_autoscaling_lifecycle_hook" "runner_termination" {
-  name                 = "${var.name}-termination-hook"
-  autoscaling_group_name = aws_autoscaling_group.github_runner.name
-  default_result       = "ABANDON"
-  heartbeat_timeout    = 300  # 5 minutes
-  lifecycle_transition = "autoscaling:EC2_INSTANCE_TERMINATING"
+  name                    = "${var.name}-termination-hook"
+  autoscaling_group_name  = aws_autoscaling_group.github_runner.name
+  default_result          = "ABANDON"
+  heartbeat_timeout       = 300 # 5 minutes
+  lifecycle_transition    = "autoscaling:EC2_INSTANCE_TERMINATING"
   notification_target_arn = aws_sns_topic.runner_lifecycle.arn
-  role_arn            = aws_iam_role.lifecycle_hook.arn
+  role_arn                = aws_iam_role.lifecycle_hook.arn
 }
 
 # SNS topic for lifecycle notifications
@@ -16,18 +16,19 @@ resource "aws_sns_topic" "runner_lifecycle" {
 
 # Lambda function for runner deregistration
 resource "aws_lambda_function" "runner_deregistration" {
-  filename         = "runner_deregistration.zip"
-  function_name    = "${var.name}-deregistration"
-  role            = aws_iam_role.lambda_deregistration.arn
-  handler         = "index.handler"
-  runtime         = "python3.9"
-  timeout         = 60
+  filename      = "runner_deregistration.zip"
+  function_name = "${var.name}-deregistration"
+  role          = aws_iam_role.lambda_deregistration.arn
+  handler       = "index.handler"
+  runtime       = "python3.9"
+  timeout       = 60
 
   environment {
     variables = {
-      SECRET_NAME = aws_secretsmanager_secret.github_runner_credentials.name
-      REGION = var.region
+      SECRET_NAME         = aws_secretsmanager_secret.github_runner_credentials.name
+      REGION              = var.region
       GITHUB_ORGANIZATION = var.github_organization
+      LIFECYCLE_LOG_GROUP = aws_cloudwatch_log_group.github_runner_lifecycle.name
     }
   }
 
@@ -39,7 +40,7 @@ data "archive_file" "lambda_zip" {
   type        = "zip"
   output_path = "runner_deregistration.zip"
   source {
-    content = file("${path.module}/lambda_deregistration.py")
+    content  = file("${path.module}/lambda_deregistration.py")
     filename = "index.py"
   }
 }
@@ -145,6 +146,16 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
           "kms:Decrypt"
         ]
         Resource = aws_kms_key.github_runner_secrets.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          "${aws_cloudwatch_log_group.github_runner_lifecycle.arn}:*"
+        ]
       },
       {
         Effect = "Allow"

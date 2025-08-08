@@ -4,8 +4,8 @@
 
 set -e
 
-LOG_FILE="/var/log/github-runner-deregistration.log"
-exec > >(tee -a $LOG_FILE)
+DEREGISTRATION_LOG_FILE="/var/log/github-runner-deregistration.log"
+exec > >(tee -a $DEREGISTRATION_LOG_FILE)
 exec 2>&1
 
 echo "$(date): Starting GitHub runner deregistration"

@@ -5,9 +5,43 @@ import time
 import requests
 import os
 import logging
+from datetime import datetime
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+def log_deregistration_event(instance_id, status, message):
+    """Log deregistration event to CloudWatch Logs."""
+    try:
+        logs_client = boto3.client('logs', region_name=os.environ['REGION'])
+        log_group = os.environ['LIFECYCLE_LOG_GROUP']
+        log_stream = f"{instance_id}/deregistration"
+        
+        # Create log stream if it doesn't exist
+        try:
+            logs_client.create_log_stream(
+                logGroupName=log_group,
+                logStreamName=log_stream
+            )
+        except logs_client.exceptions.ResourceAlreadyExistsException:
+            pass
+        
+        # Put log event
+        timestamp = int(time.time() * 1000)
+        log_message = f"{datetime.utcnow().isoformat()}Z: [{status}] {message}"
+        
+        logs_client.put_log_events(
+            logGroupName=log_group,
+            logStreamName=log_stream,
+            logEvents=[
+                {
+                    'timestamp': timestamp,
+                    'message': log_message
+                }
+            ]
+        )
+    except Exception as e:
+        logger.error(f"Failed to log deregistration event: {e}")
 
 def handler(event, context):
     logger.info(f"Received event: {json.dumps(event)}")
@@ -110,10 +144,15 @@ def handler(event, context):
                 
                 if response.status_code == 204:
                     logger.info(f"Successfully deregistered runner {instance_id}")
+                    
+                    # Log to CloudWatch for lifecycle tracking
+                    log_deregistration_event(instance_id, "SUCCESS", f"Runner {instance_id} successfully deregistered")
                 else:
                     logger.error(f"Failed to deregister runner: {response.status_code}")
+                    log_deregistration_event(instance_id, "FAILED", f"Failed to deregister runner: {response.status_code}")
             else:
                 logger.info(f"Runner {instance_id} not found in GitHub")
+                log_deregistration_event(instance_id, "NOT_FOUND", f"Runner {instance_id} not found in GitHub")
         
         # Complete lifecycle action
         autoscaling_client = boto3.client('autoscaling', region_name=region)

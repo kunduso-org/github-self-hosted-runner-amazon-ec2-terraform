@@ -2,8 +2,8 @@
 set -e
 
 # Setup logging
-LOG_FILE="/var/log/github-runner-setup.log"
-exec > >(tee -a $LOG_FILE)
+REGISTRATION_LOG_FILE="/var/log/github-runner-registration.log"
+exec > >(tee -a $REGISTRATION_LOG_FILE)
 exec 2>&1
 
 echo "$(date): Starting GitHub runner setup"
@@ -76,14 +76,20 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<EOF
       "files": {
         "collect_list": [
           {
-            "file_path": "/var/log/github-runner-setup.log",
-            "log_group_name": "${log_group_name}",
-            "log_stream_name": "{instance_id}-setup",
+            "file_path": "/var/log/github-runner-registration.log",
+            "log_group_name": "${lifecycle_log_group_name}",
+            "log_stream_name": "{instance_id}/registration",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/github-runner-deregistration.log",
+            "log_group_name": "${lifecycle_log_group_name}",
+            "log_stream_name": "{instance_id}/deregistration",
             "timezone": "UTC"
           },
           {
             "file_path": "/var/log/github-runner.log",
-            "log_group_name": "${log_group_name}",
+            "log_group_name": "${execution_log_group_name}",
             "log_stream_name": "{instance_id}-runner",
             "timezone": "UTC"
           }
@@ -297,7 +303,7 @@ echo "$(date): Runner service installed and started successfully"
 
 # Setup deregistration script
 echo "$(date): Setting up runner deregistration service"
-cp /tmp/deregister-runner.sh /usr/local/bin/deregister-runner.sh
+echo '${deregister_script}' | base64 -d > /usr/local/bin/deregister-runner.sh
 chmod +x /usr/local/bin/deregister-runner.sh
 
 # Create systemd service for deregistration
