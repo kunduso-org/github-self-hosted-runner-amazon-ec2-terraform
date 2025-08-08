@@ -130,7 +130,6 @@ echo "$(date): Downloading GitHub Actions runner"
 cd /home/runner
 curl -o actions-runner-linux-x64-2.321.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.321.0/actions-runner-linux-x64-2.321.0.tar.gz
 tar xzf actions-runner-linux-x64-2.321.0.tar.gz
-chown -R runner:runner /home/runner
 echo "$(date): GitHub Actions runner downloaded successfully"
 
 # Get GitHub credentials from Secrets Manager
@@ -268,7 +267,6 @@ echo "$(date): Registration token obtained successfully"
 
 # Configure and start runner
 echo "$(date): Configuring GitHub runner"
-chown -R runner:runner /home/runner/_work
 echo "$(date): Running config.sh with parameters:"
 echo "$(date): URL: $ORG_URL"
 echo "$(date): Name: $INSTANCE_ID"
