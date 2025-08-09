@@ -25,21 +25,43 @@ def log_deregistration_event(instance_id, status, message):
             )
         except logs_client.exceptions.ResourceAlreadyExistsException:
             pass
+        except Exception as e:
+            logger.error(f"Failed to create log stream: {e}")
+            return
+        
+        # Get sequence token for existing stream
+        try:
+            response = logs_client.describe_log_streams(
+                logGroupName=log_group,
+                logStreamNamePrefix=log_stream
+            )
+            sequence_token = None
+            if response['logStreams']:
+                sequence_token = response['logStreams'][0].get('uploadSequenceToken')
+        except Exception as e:
+            logger.error(f"Failed to get sequence token: {e}")
+            sequence_token = None
         
         # Put log event
         timestamp = int(time.time() * 1000)
-        log_message = f"{datetime.utcnow().isoformat()}Z: [{status}] {message}"
+        log_message = f"{datetime.utcnow().isoformat()}Z: [LIFECYCLE_HOOK] [{status}] {message}"
         
-        logs_client.put_log_events(
-            logGroupName=log_group,
-            logStreamName=log_stream,
-            logEvents=[
+        put_events_params = {
+            'logGroupName': log_group,
+            'logStreamName': log_stream,
+            'logEvents': [
                 {
                     'timestamp': timestamp,
                     'message': log_message
                 }
             ]
-        )
+        }
+        
+        if sequence_token:
+            put_events_params['sequenceToken'] = sequence_token
+            
+        logs_client.put_log_events(**put_events_params)
+        
     except Exception as e:
         logger.error(f"Failed to log deregistration event: {e}")
 
@@ -57,6 +79,7 @@ def handler(event, context):
         lifecycle_action_token = sns_message['LifecycleActionToken']
         
         logger.info(f"Processing termination for instance: {instance_id}")
+        log_deregistration_event(instance_id, "STARTED", f"Lifecycle hook triggered for instance {instance_id}")
         
         # Get GitHub credentials
         secret_name = os.environ['SECRET_NAME']
@@ -165,6 +188,7 @@ def handler(event, context):
         )
         
         logger.info(f"Completed lifecycle action for instance {instance_id}")
+        log_deregistration_event(instance_id, "COMPLETED", f"Lifecycle hook processing completed for instance {instance_id}")
         
         return {
             'statusCode': 200,
