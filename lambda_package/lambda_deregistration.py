@@ -2,7 +2,7 @@ import json
 import boto3
 import jwt
 import time
-import requests
+import urllib3
 import os
 import logging
 from datetime import datetime
@@ -104,22 +104,24 @@ def handler(event, context):
         token = jwt.encode(payload, private_key, algorithm='RS256')
         
         # Get GitHub access token
+        http = urllib3.PoolManager()
         headers = {
             'Authorization': f'Bearer {token}',
             'Accept': 'application/vnd.github.v3+json'
         }
         
-        response = requests.post(
+        response = http.request(
+            'POST',
             f'https://api.github.com/app/installations/{installation_id}/access_tokens',
             headers=headers,
             timeout=30
         )
         
-        if response.status_code != 201:
-            logger.error(f"Failed to get GitHub access token: {response.status_code}")
+        if response.status != 201:
+            logger.error(f"Failed to get GitHub access token: {response.status}")
             raise Exception("GitHub authentication failed")
         
-        github_token = response.json()['token']
+        github_token = json.loads(response.data.decode('utf-8'))['token']
         
         # Get removal token
         headers = {
@@ -127,27 +129,29 @@ def handler(event, context):
             'Accept': 'application/vnd.github.v3+json'
         }
         
-        response = requests.post(
+        response = http.request(
+            'POST',
             f'https://api.github.com/orgs/{github_organization}/actions/runners/remove-token',
             headers=headers,
             timeout=30
         )
         
-        if response.status_code != 201:
-            logger.error(f"Failed to get removal token: {response.status_code}")
+        if response.status != 201:
+            logger.error(f"Failed to get removal token: {response.status}")
             raise Exception("Failed to get removal token")
         
-        removal_token = response.json()['token']
+        removal_token = json.loads(response.data.decode('utf-8'))['token']
         
         # Find and remove runner by instance ID
-        response = requests.get(
+        response = http.request(
+            'GET',
             f'https://api.github.com/orgs/{github_organization}/actions/runners',
             headers=headers,
             timeout=30
         )
         
-        if response.status_code == 200:
-            runners = response.json()['runners']
+        if response.status == 200:
+            runners = json.loads(response.data.decode('utf-8'))['runners']
             runner_to_remove = None
             
             for runner in runners:
@@ -159,20 +163,21 @@ def handler(event, context):
                 runner_id = runner_to_remove['id']
                 
                 # Remove the runner
-                response = requests.delete(
+                response = http.request(
+                    'DELETE',
                     f'https://api.github.com/orgs/{github_organization}/actions/runners/{runner_id}',
                     headers=headers,
                     timeout=30
                 )
                 
-                if response.status_code == 204:
+                if response.status == 204:
                     logger.info(f"Successfully deregistered runner {instance_id}")
                     
                     # Log to CloudWatch for lifecycle tracking
                     log_deregistration_event(instance_id, "SUCCESS", f"Runner {instance_id} successfully deregistered")
                 else:
-                    logger.error(f"Failed to deregister runner: {response.status_code}")
-                    log_deregistration_event(instance_id, "FAILED", f"Failed to deregister runner: {response.status_code}")
+                    logger.error(f"Failed to deregister runner: {response.status}")
+                    log_deregistration_event(instance_id, "FAILED", f"Failed to deregister runner: {response.status}")
             else:
                 logger.info(f"Runner {instance_id} not found in GitHub")
                 log_deregistration_event(instance_id, "NOT_FOUND", f"Runner {instance_id} not found in GitHub")
