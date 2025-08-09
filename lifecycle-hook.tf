@@ -35,14 +35,29 @@ resource "aws_lambda_function" "runner_deregistration" {
   depends_on = [data.archive_file.lambda_zip]
 }
 
-# Lambda deployment package
+# Lambda deployment package with dependencies
+resource "null_resource" "lambda_dependencies" {
+  triggers = {
+    requirements = filemd5("${path.module}/lambda_package/requirements.txt")
+    source_code  = filemd5("${path.module}/lambda_package/lambda_deregistration.py")
+  }
+
+  provisioner "local-exec" {
+    command = <<EOF
+      rm -rf ${path.module}/lambda_build
+      mkdir -p ${path.module}/lambda_build
+      pip install -r ${path.module}/lambda_package/requirements.txt -t ${path.module}/lambda_build/
+      cp ${path.module}/lambda_package/lambda_deregistration.py ${path.module}/lambda_build/index.py
+    EOF
+  }
+}
+
 data "archive_file" "lambda_zip" {
   type        = "zip"
   output_path = "runner_deregistration.zip"
-  source {
-    content  = file("${path.module}/lambda_deregistration.py")
-    filename = "index.py"
-  }
+  source_dir  = "${path.module}/lambda_build"
+  
+  depends_on = [null_resource.lambda_dependencies]
 }
 
 # SNS subscription to Lambda
