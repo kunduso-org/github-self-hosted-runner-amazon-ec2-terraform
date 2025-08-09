@@ -20,7 +20,7 @@ resource "aws_lambda_function" "runner_deregistration" {
   function_name = "${var.name}-deregistration"
   role          = aws_iam_role.lambda_deregistration.arn
   handler       = "index.handler"
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   timeout       = 60
 
   environment {
@@ -32,32 +32,19 @@ resource "aws_lambda_function" "runner_deregistration" {
     }
   }
 
+  layers = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
+  
   depends_on = [data.archive_file.lambda_zip]
 }
 
-# Lambda deployment package with dependencies
-resource "null_resource" "lambda_dependencies" {
-  triggers = {
-    requirements = filemd5("${path.module}/lambda_package/requirements.txt")
-    source_code  = filemd5("${path.module}/lambda_package/lambda_deregistration.py")
-  }
-
-  provisioner "local-exec" {
-    command = <<EOF
-      rm -rf ${path.module}/lambda_build
-      mkdir -p ${path.module}/lambda_build
-      pip install -r ${path.module}/lambda_package/requirements.txt -t ${path.module}/lambda_build/
-      cp ${path.module}/lambda_package/lambda_deregistration.py ${path.module}/lambda_build/index.py
-    EOF
-  }
-}
-
+# Lambda deployment package (code only, dependencies in layer)
 data "archive_file" "lambda_zip" {
   type        = "zip"
   output_path = "runner_deregistration.zip"
-  source_dir  = "${path.module}/lambda_build"
-  
-  depends_on = [null_resource.lambda_dependencies]
+  source {
+    content  = file("${path.module}/lambda_package/lambda_deregistration.py")
+    filename = "index.py"
+  }
 }
 
 # SNS subscription to Lambda
