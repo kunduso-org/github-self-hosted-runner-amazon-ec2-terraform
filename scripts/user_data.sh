@@ -303,7 +303,7 @@ echo "$(date): Runner service installed and started successfully"
 
 # Setup deregistration script
 echo "$(date): Setting up runner deregistration service"
-echo '${deregister_script}' | base64 -d > /usr/local/bin/deregister-runner.sh
+aws ssm get-parameter --name "${deregister_script_param}" --with-decryption --region "${region}" --query Parameter.Value --output text > /usr/local/bin/deregister-runner.sh
 chmod +x /usr/local/bin/deregister-runner.sh
 
 # Create systemd service for deregistration
