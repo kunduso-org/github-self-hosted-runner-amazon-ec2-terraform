@@ -34,6 +34,8 @@ resource "aws_lambda_function" "runner_deregistration" {
 
   layers = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
   
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  
   depends_on = [data.archive_file.lambda_zip]
 }
 
