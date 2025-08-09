@@ -89,8 +89,8 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<EOF
           },
           {
             "file_path": "/var/log/github-runner.log",
-            "log_group_name": "${execution_log_group_name}",
-            "log_stream_name": "{instance_id}-runner",
+            "log_group_name": "${lifecycle_log_group_name}",
+            "log_stream_name": "{instance_id}/execution",
             "timezone": "UTC"
           }
         ]
