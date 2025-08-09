@@ -133,7 +133,8 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
-          "logs:PutLogEvents"
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
         ]
         Resource = "arn:aws:logs:${var.region}:*:*"
       },
