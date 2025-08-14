@@ -31,7 +31,10 @@ reserved_concurrent_executions = 5
       LIFECYCLE_LOG_GROUP = aws_cloudwatch_log_group.github_runner_lifecycle.name
     }
   }
-
+    vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda.id]
+  }
   layers = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
   
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
