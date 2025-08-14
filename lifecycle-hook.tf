@@ -22,7 +22,7 @@ resource "aws_lambda_function" "runner_deregistration" {
   handler       = "index.handler"
   runtime       = "python3.12"
   timeout       = 60
-
+reserved_concurrent_executions = 5
   environment {
     variables = {
       SECRET_NAME         = aws_secretsmanager_secret.github_runner_credentials.name
