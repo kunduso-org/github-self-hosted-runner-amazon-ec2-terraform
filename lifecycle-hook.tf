@@ -16,13 +16,13 @@ resource "aws_sns_topic" "runner_lifecycle" {
 
 # Lambda function for runner deregistration
 resource "aws_lambda_function" "runner_deregistration" {
-  filename      = "runner_deregistration.zip"
-  function_name = "${var.name}-deregistration"
-  role          = aws_iam_role.lambda_deregistration.arn
-  handler       = "index.handler"
-  runtime       = "python3.12"
-  timeout       = 60
-reserved_concurrent_executions = 5
+  filename                       = "runner_deregistration.zip"
+  function_name                  = "${var.name}-deregistration"
+  role                           = aws_iam_role.lambda_deregistration.arn
+  handler                        = "index.handler"
+  runtime                        = "python3.12"
+  timeout                        = 60
+  reserved_concurrent_executions = 5
   environment {
     variables = {
       SECRET_NAME         = aws_secretsmanager_secret.github_runner_credentials.name
@@ -31,14 +31,14 @@ reserved_concurrent_executions = 5
       LIFECYCLE_LOG_GROUP = aws_cloudwatch_log_group.github_runner_lifecycle.name
     }
   }
-    vpc_config {
+  vpc_config {
     subnet_ids         = aws_subnet.private[*].id
     security_group_ids = [aws_security_group.lambda.id]
   }
   layers = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
-  
+
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-  
+
   depends_on = [data.archive_file.lambda_zip]
 }
 
