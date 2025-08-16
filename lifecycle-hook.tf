@@ -41,8 +41,9 @@ resource "aws_lambda_function" "runner_deregistration" {
   }
   layers     = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
   depends_on = [data.archive_file.lambda_zip]
+  #checkov:skip=CKV_AWS_272: Lambda function should be configured to validate code-signing
+  #Reason: Code signing not required for internal automation Lambda function
 }
-
 # Lambda deployment package (code only, dependencies in layer)
 data "archive_file" "lambda_zip" {
   type        = "zip"
