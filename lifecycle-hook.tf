@@ -18,6 +18,7 @@ resource "aws_sns_topic" "runner_lifecycle" {
 resource "aws_lambda_function" "runner_deregistration" {
   filename                       = "runner_deregistration.zip"
   function_name                  = "${var.name}-deregistration"
+  source_code_hash               = data.archive_file.lambda_zip.output_base64sha256
   role                           = aws_iam_role.lambda_deregistration.arn
   handler                        = "index.handler"
   runtime                        = "python3.12"
@@ -32,13 +33,13 @@ resource "aws_lambda_function" "runner_deregistration" {
     }
   }
   vpc_config {
-    subnet_ids         = aws_subnet.private[*].id
+    subnet_ids         = [for subnet in module.vpc.private_subnets : subnet.id]
     security_group_ids = [aws_security_group.lambda.id]
   }
-  layers = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
-
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-
+  tracing_config {
+    mode = "Active"
+  }
+  layers     = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
   depends_on = [data.archive_file.lambda_zip]
 }
 
