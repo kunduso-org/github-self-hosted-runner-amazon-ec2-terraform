@@ -39,6 +39,9 @@ resource "aws_lambda_function" "runner_deregistration" {
   tracing_config {
     mode = "Active"
   }
+  dead_letter_config {
+    target_arn = aws_sqs_queue.dlq.arn
+  }
   layers     = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
   depends_on = [data.archive_file.lambda_zip]
   #checkov:skip=CKV_AWS_272: Lambda function should be configured to validate code-signing
@@ -176,4 +179,11 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
       }
     ]
   })
+}
+
+#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sqs_queue
+resource "aws_sqs_queue" "dlq" {
+  name                              = "${var.name}-lambda-dlq"
+  kms_master_key_id                 = aws_kms_key.encryption.arn
+  kms_data_key_reuse_period_seconds = 300
 }
