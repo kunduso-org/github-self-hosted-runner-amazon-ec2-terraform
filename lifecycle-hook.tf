@@ -9,10 +9,6 @@ resource "aws_autoscaling_lifecycle_hook" "runner_termination" {
   role_arn                = aws_iam_role.lifecycle_hook.arn
 }
 
-# SNS topic for lifecycle notifications
-resource "aws_sns_topic" "runner_lifecycle" {
-  name = "${var.name}-lifecycle"
-}
 
 # Lambda function for runner deregistration
 resource "aws_lambda_function" "runner_deregistration" {
@@ -56,22 +52,6 @@ data "archive_file" "lambda_zip" {
     content  = file("${path.module}/lambda_package/lambda_deregistration.py")
     filename = "index.py"
   }
-}
-
-# SNS subscription to Lambda
-resource "aws_sns_topic_subscription" "runner_lifecycle" {
-  topic_arn = aws_sns_topic.runner_lifecycle.arn
-  protocol  = "lambda"
-  endpoint  = aws_lambda_function.runner_deregistration.arn
-}
-
-# Lambda permission for SNS
-resource "aws_lambda_permission" "sns_invoke" {
-  statement_id  = "AllowExecutionFromSNS"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.runner_deregistration.function_name
-  principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.runner_lifecycle.arn
 }
 
 # IAM role for lifecycle hook
