@@ -20,7 +20,7 @@ resource "aws_lambda_function" "runner_deregistration" {
   runtime                        = "python3.12"
   timeout                        = 60
   reserved_concurrent_executions = 5
-  kms_key_arn                    = aws_kms_key.encryption.arn
+  kms_key_arn                    = aws_kms_key.encrypt_lambda.arn
   environment {
     variables = {
       SECRET_NAME         = aws_secretsmanager_secret.github_runner_credentials.name
@@ -109,6 +109,12 @@ resource "aws_iam_role" "lambda_deregistration" {
   })
 }
 
+# AWS managed policy for Lambda VPC execution
+resource "aws_iam_role_policy_attachment" "lambda_vpc_execution" {
+  role       = aws_iam_role.lambda_deregistration.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 # Lambda IAM policy
 resource "aws_iam_role_policy" "lambda_deregistration" {
   name = "${var.name}-lambda-deregistration-policy"
@@ -157,6 +163,13 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
           "autoscaling:CompleteLifecycleAction"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:SendMessage"
+        ]
+        Resource = aws_sqs_queue.dlq.arn
       }
     ]
   })
@@ -165,6 +178,6 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
 #https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sqs_queue
 resource "aws_sqs_queue" "dlq" {
   name                              = "${var.name}-lambda-dlq"
-  kms_master_key_id                 = aws_kms_key.encryption.arn
+  kms_master_key_id                 = aws_kms_key.encrypt_lambda.arn
   kms_data_key_reuse_period_seconds = 300
 }
