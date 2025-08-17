@@ -39,9 +39,27 @@ data "aws_iam_policy_document" "encrypt_sns_policy" {
     effect = "Allow"
     principals {
       type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+      identifiers = ["${local.principal_root_arn}"]
     }
-    actions = ["kms:*"]
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey",
+      "kms:Enable*",
+      "kms:List*",
+      "kms:Put*",
+      "kms:Update*",
+      "kms:Revoke*",
+      "kms:Disable*",
+      "kms:Get*",
+      "kms:Delete*",
+      "kms:ScheduleKeyDeletion",
+      "kms:CancelKeyDeletion",
+      "kms:TagResource",
+      "kms:UntagResource"
+    ]
     resources = ["*"]
   }
   
@@ -59,7 +77,7 @@ data "aws_iam_policy_document" "encrypt_sns_policy" {
       "kms:GenerateDataKey*",
       "kms:DescribeKey"
     ]
-    resources = ["*"]
+    resources = [local.sns_topic_arn]
   }
   
   statement {
@@ -74,7 +92,7 @@ data "aws_iam_policy_document" "encrypt_sns_policy" {
       "kms:GenerateDataKey*",
       "kms:DescribeKey"
     ]
-    resources = ["*"]
+    resources = [local.asg_arn]
   }
   
   statement {
@@ -88,7 +106,7 @@ data "aws_iam_policy_document" "encrypt_sns_policy" {
       "kms:Decrypt",
       "kms:DescribeKey"
     ]
-    resources = ["*"]
+    resources = [local.lambda_arn]
   }
 }
 #https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy

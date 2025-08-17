@@ -5,7 +5,7 @@ resource "aws_autoscaling_lifecycle_hook" "runner_termination" {
   default_result          = "ABANDON"
   heartbeat_timeout       = 300 # 5 minutes
   lifecycle_transition    = "autoscaling:EC2_INSTANCE_TERMINATING"
-  notification_target_arn = aws_sns_topic.runner_lifecycle.arn
+  notification_target_arn = local.sns_topic_arn
   role_arn                = aws_iam_role.lifecycle_hook.arn
 }
 
@@ -85,7 +85,7 @@ resource "aws_iam_role_policy" "lifecycle_hook" {
         Action = [
           "sns:Publish"
         ]
-        Resource = aws_sns_topic.runner_lifecycle.arn
+        Resource = local.sns_topic_arn
       }
     ]
   })
