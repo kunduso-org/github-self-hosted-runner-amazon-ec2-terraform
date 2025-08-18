@@ -70,7 +70,7 @@ resource "aws_iam_policy" "github_runner" {
         Action = [
           "kms:Decrypt"
         ]
-        Resource = aws_kms_key.ssm_parameters.arn
+        Resource = aws_kms_key.encrypt_ssm.arn
       }
     ]
   })
