@@ -2,7 +2,7 @@
 
 # SNS topic for lifecycle notifications
 resource "aws_sns_topic" "runner_lifecycle" {
-  name = "${var.name}-lifecycle"
+  name              = "${var.name}-lifecycle"
   kms_master_key_id = aws_kms_key.encrypt_sns.id
 }
 # SNS subscription to Lambda
@@ -10,7 +10,7 @@ resource "aws_sns_topic_subscription" "runner_lifecycle" {
   topic_arn = aws_sns_topic.runner_lifecycle.arn
   protocol  = "lambda"
   endpoint  = aws_lambda_function.runner_deregistration.arn
-  
+
 }
 
 # Lambda permission for SNS
@@ -62,7 +62,7 @@ data "aws_iam_policy_document" "encrypt_sns_policy" {
     ]
     resources = ["*"]
   }
-  
+
   statement {
     sid    = "Allow SNS to use the key"
     effect = "Allow"
@@ -79,7 +79,7 @@ data "aws_iam_policy_document" "encrypt_sns_policy" {
     ]
     resources = [local.sns_topic_arn]
   }
-  
+
   statement {
     sid    = "Allow Auto Scaling to publish to SNS"
     effect = "Allow"
@@ -94,7 +94,7 @@ data "aws_iam_policy_document" "encrypt_sns_policy" {
     ]
     resources = ["*"]
   }
-  
+
   statement {
     sid    = "Allow Lambda to decrypt SNS messages"
     effect = "Allow"
