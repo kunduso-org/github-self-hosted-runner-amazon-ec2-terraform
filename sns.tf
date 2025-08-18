@@ -92,7 +92,7 @@ data "aws_iam_policy_document" "encrypt_sns_policy" {
       "kms:GenerateDataKey*",
       "kms:DescribeKey"
     ]
-    resources = [local.asg_arn]
+    resources = ["*"]
   }
   
   statement {
@@ -106,7 +106,7 @@ data "aws_iam_policy_document" "encrypt_sns_policy" {
       "kms:Decrypt",
       "kms:DescribeKey"
     ]
-    resources = [local.lambda_arn]
+    resources = ["*"]
   }
 }
 #https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy
