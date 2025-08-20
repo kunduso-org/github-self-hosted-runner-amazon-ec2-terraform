@@ -5,6 +5,11 @@ resource "aws_sns_topic" "runner_lifecycle" {
   name              = "${var.name}-lifecycle"
   kms_master_key_id = aws_kms_key.encrypt_sns.id
 }
+
+resource "aws_kms_alias" "encrypt_sns" {
+  name          = "alias/${var.name}-encrypt-sns"
+  target_key_id = aws_kms_key.encrypt_sns.key_id
+}
 # SNS subscription to Lambda
 resource "aws_sns_topic_subscription" "runner_lifecycle" {
   topic_arn = aws_sns_topic.runner_lifecycle.arn
@@ -21,96 +26,43 @@ resource "aws_lambda_permission" "sns_invoke" {
   principal     = "sns.amazonaws.com"
   source_arn    = aws_sns_topic.runner_lifecycle.arn
 }
-#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key
+# KMS key for SNS encryption
 resource "aws_kms_key" "encrypt_sns" {
   enable_key_rotation     = true
-  description             = "Key to encrypt sns topic in ${var.name}."
+  description             = "Key to encrypt SNS topic in ${var.name}."
   deletion_window_in_days = 7
-}
-#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias
-resource "aws_kms_alias" "encrypt_sns" {
-  name          = "alias/${var.name}-encrypt-sns"
-  target_key_id = aws_kms_key.encrypt_sns.key_id
-}
-#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document
-data "aws_iam_policy_document" "encrypt_sns_policy" {
-  statement {
-    sid    = "Enable IAM User Permissions"
-    effect = "Allow"
-    principals {
-      type        = "AWS"
-      identifiers = ["${local.principal_root_arn}"]
-    }
-    actions = [
-      "kms:Encrypt",
-      "kms:Decrypt",
-      "kms:ReEncrypt*",
-      "kms:GenerateDataKey*",
-      "kms:DescribeKey",
-      "kms:Enable*",
-      "kms:List*",
-      "kms:Put*",
-      "kms:Update*",
-      "kms:Revoke*",
-      "kms:Disable*",
-      "kms:Get*",
-      "kms:Delete*",
-      "kms:ScheduleKeyDeletion",
-      "kms:CancelKeyDeletion",
-      "kms:TagResource",
-      "kms:UntagResource"
-    ]
-    resources = ["*"]
-  }
 
-  statement {
-    sid    = "Allow SNS to use the key"
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["sns.amazonaws.com"]
-    }
-    actions = [
-      "kms:Encrypt",
-      "kms:Decrypt",
-      "kms:ReEncrypt*",
-      "kms:GenerateDataKey*",
-      "kms:DescribeKey"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow services to use the key"
+        Effect = "Allow"
+        Principal = {
+          Service = [
+            "sns.amazonaws.com",
+            "autoscaling.amazonaws.com",
+            "lambda.amazonaws.com"
+          ]
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
     ]
-    resources = [local.sns_topic_arn]
-  }
-
-  statement {
-    sid    = "Allow Auto Scaling to publish to SNS"
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["autoscaling.amazonaws.com"]
-    }
-    actions = [
-      "kms:Encrypt",
-      "kms:GenerateDataKey*",
-      "kms:DescribeKey"
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    sid    = "Allow Lambda to decrypt SNS messages"
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-    actions = [
-      "kms:Decrypt",
-      "kms:DescribeKey"
-    ]
-    resources = ["*"]
-  }
-}
-#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy
-resource "aws_kms_key_policy" "encrypt_sns" {
-  key_id = aws_kms_key.encrypt_sns.id
-  policy = data.aws_iam_policy_document.encrypt_sns_policy.json
+  })
 }
