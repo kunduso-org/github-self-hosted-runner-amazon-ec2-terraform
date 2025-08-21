@@ -28,6 +28,35 @@ resource "aws_kms_key" "encrypt_sns" {
   deletion_window_in_days = 7
 }
 
+data "aws_iam_policy_document" "encrypt_sns" {
+  statement {
+    sid    = "Enable full access for root account"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["${local.principal_root_arn}"]
+    }
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "Allow all AWS services"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["*"]
+    }
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_kms_key_policy" "encrypt_sns" {
+  key_id = aws_kms_key.encrypt_sns.id
+  policy = data.aws_iam_policy_document.encrypt_sns.json
+}
+
 resource "aws_kms_alias" "encrypt_sns" {
   name          = "alias/${var.name}-encrypt-sns"
   target_key_id = aws_kms_key.encrypt_sns.key_id
