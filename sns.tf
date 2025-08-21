@@ -41,11 +41,15 @@ data "aws_iam_policy_document" "encrypt_sns" {
   }
 
   statement {
-    sid    = "Allow all AWS services"
+    sid    = "Allow AWS services"
     effect = "Allow"
     principals {
-      type        = "Service"
-      identifiers = ["*"]
+      type = "Service"
+      identifiers = [
+        "sns.amazonaws.com",
+        "autoscaling.amazonaws.com",
+        "lambda.amazonaws.com"
+      ]
     }
     actions   = ["kms:*"]
     resources = ["*"]
