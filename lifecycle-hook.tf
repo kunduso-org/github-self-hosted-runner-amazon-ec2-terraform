@@ -173,7 +173,7 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
         Action = [
           "autoscaling:CompleteLifecycleAction"
         ]
-        Resource = "*"
+        Resource = "${aws_autoscaling_group.github_runner.name}"
       },
       {
         Effect = "Allow"
