@@ -18,7 +18,7 @@ data "aws_iam_policy_document" "encrypt_ssm" {
       identifiers = ["${local.principal_root_arn}"]
     }
     actions   = ["kms:*"]
-    resources = ["*"]
+    resources = [aws_kms_key.encrypt_ssm.arn]
   }
 
   statement {
@@ -35,7 +35,7 @@ data "aws_iam_policy_document" "encrypt_ssm" {
       "kms:GenerateDataKey",
       "kms:ReEncrypt*"
     ]
-    resources = ["*"]
+    resources = [aws_kms_key.encrypt_ssm.arn]
   }
 }
 

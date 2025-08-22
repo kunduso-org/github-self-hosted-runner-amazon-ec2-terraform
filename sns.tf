@@ -37,7 +37,7 @@ data "aws_iam_policy_document" "encrypt_sns" {
       identifiers = ["${local.principal_root_arn}"]
     }
     actions   = ["kms:*"]
-    resources = ["*"]
+    resources = [aws_kms_key.encrypt_sns.arn]
   }
 
   statement {
