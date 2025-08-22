@@ -90,7 +90,11 @@ resource "aws_iam_role_policy" "lifecycle_hook" {
       {
         Effect = "Allow"
         Action = [
-          "kms:*"
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*"
         ]
         Resource = aws_kms_key.encrypt_sns.arn
       }

@@ -51,8 +51,14 @@ data "aws_iam_policy_document" "encrypt_sns" {
         "lambda.amazonaws.com"
       ]
     }
-    actions   = ["kms:*"]
-    resources = ["*"]
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey"
+    ]
+    resources = [aws_kms_key.encrypt_sns.arn]
   }
 }
 
