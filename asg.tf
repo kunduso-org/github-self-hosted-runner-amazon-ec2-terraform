@@ -116,26 +116,6 @@ resource "aws_security_group_rule" "github_runner_egress" {
 
 }
 
-resource "aws_security_group" "lambda" {
-  name        = "${var.name}-lambda-sg"
-  description = "Security group for Lambda function"
-  vpc_id      = module.vpc.vpc.id
-
-  tags = {
-    Name = "${var.name}-lambda-sg"
-  }
-}
-
-resource "aws_security_group_rule" "lambda_egress" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  description       = "Allow all outbound traffic for Lambda"
-  security_group_id = aws_security_group.lambda.id
-}
-
 resource "aws_launch_template" "github_runner" {
   name_prefix   = var.name
   image_id      = data.aws_ami.ubuntu.id
