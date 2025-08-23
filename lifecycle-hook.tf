@@ -171,7 +171,7 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = aws_secretsmanager_secret.github_runner_credentials.arn
+        Resource = [aws_secretsmanager_secret.github_runner_credentials.arn]
       },
       {
         Effect = "Allow"
@@ -195,14 +195,14 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
         Action = [
           "autoscaling:CompleteLifecycleAction"
         ]
-        Resource = "${aws_autoscaling_group.github_runner.name}"
+        Resource = [aws_autoscaling_group.github_runner.arn]
       },
       {
         Effect = "Allow"
         Action = [
           "sqs:SendMessage"
         ]
-        Resource = aws_sqs_queue.dlq.arn
+        Resource = [aws_sqs_queue.dlq.arn]
       }
     ]
   })
