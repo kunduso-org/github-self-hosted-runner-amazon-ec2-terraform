@@ -10,22 +10,29 @@ This repository contains Terraform infrastructure code to deploy scalable, self-
 
 - **High Availability**: Maintains consistent runner capacity using AWS Auto Scaling Groups with automatic instance replacement across multiple Availability Zones
 - **Secure Authentication**: Uses GitHub App authentication for secure API access
-- **Automated Lifecycle Management**: Automatic runner registration and deregistration
+- **Automated Lifecycle Management**: Automatic runner registration and deregistration with dual mechanisms (Lambda + systemd service)
+- **Automated Deregistration**: Prevents orphaned runners in GitHub organization using lifecycle hooks and Lambda functions
 - **Unified Logging**: Centralized CloudWatch logging for complete runner lifecycle tracking
 - **Network Security**: Runs in private subnets with NAT Gateway for outbound internet access
-- **Encryption**: KMS encryption for secrets, logs, and EFS storage
-- **Cost Optimization**: EFS storage for shared runner workspace to reduce startup time
+- **Encryption**: KMS encryption for secrets, CloudWatch logs, EFS storage, SNS topics, and Lambda functions
+- **Performance Optimization**: EFS with tuned NFS parameters and Lambda layer for reduced cold start times
+- **Cost Optimization**: EFS storage for shared runner workspace and dependency caching to reduce startup time
 
 ## Architecture
 
 The solution deploys:
 - **VPC with public/private subnets** across multiple Availability Zones
 - **Auto Scaling Group** with EC2 instances running GitHub Actions runners
-- **Lambda function** for automated runner deregistration on instance termination
-- **EFS file system** for shared runner workspace storage
-- **CloudWatch log groups** for unified lifecycle logging
+- **Auto Scaling Lifecycle Hooks** for graceful runner deregistration on instance termination
+- **SNS Topic** for lifecycle event notifications with KMS encryption
+- **Lambda function** for automated runner deregistration via GitHub API
+- **Lambda Layer** with PyJWT and cryptography dependencies for optimized performance
+- **Dead Letter Queue** for Lambda error handling and retry mechanisms
+- **EFS file system** for shared runner workspace storage with optimized NFS parameters
+- **CloudWatch log groups** for unified lifecycle logging with structured format
 - **Secrets Manager** for secure GitHub App credentials storage
-- **SSM Parameter Store** for runner configuration scripts
+- **SSM Parameter Store** for runner configuration scripts and deregistration service
+- **Systemd Service** for backup deregistration mechanism
 
 ## Prerequisites
 
@@ -109,23 +116,34 @@ The solution provides unified logging with the following structure:
 
 - All runners operate in private subnets with no direct internet access
 - GitHub App authentication provides scoped, time-limited access tokens
-- All secrets are encrypted using AWS KMS
-- CloudWatch logs are encrypted at rest
+- All secrets are encrypted using customer-managed KMS keys
+- CloudWatch logs are encrypted at rest with KMS
 - EFS file system uses encryption in transit and at rest
+- SNS topics and Lambda functions encrypted with customer-managed KMS keys
+- Lambda functions run in VPC with private subnets for enhanced security
+- Dead Letter Queue encrypted for secure error message handling
 - Security groups restrict network access to necessary ports only
+- IAM roles follow least privilege principle with minimal required permissions
 
 ## Troubleshooting
 
 ### Common Issues
 1. **Runner registration failures**: Check GitHub App permissions and credentials in Secrets Manager
 2. **Instance launch failures**: Verify VPC configuration and security group rules
-3. **Deregistration issues**: Check Lambda function logs in CloudWatch
+3. **Deregistration issues**: Check Lambda function logs in CloudWatch and dead letter queue messages
 4. **Network connectivity**: Ensure NAT Gateway is properly configured for private subnet internet access
+5. **Lambda deregistration failures**: Check Lambda function logs, VPC configuration, and GitHub API connectivity
+6. **EFS mount issues**: Verify NFS security group rules and mount target availability in all AZs
+7. **Lifecycle hook timeouts**: Check 5-minute timeout configuration and Lambda function performance metrics
+8. **SNS delivery failures**: Verify SNS topic permissions and Lambda subscription configuration
 
 ### Monitoring
-- CloudWatch logs provide detailed lifecycle tracking
-- Auto Scaling Group metrics show scaling activities
-- Lambda function metrics indicate deregistration success rates
+- CloudWatch logs provide detailed lifecycle tracking with structured format
+- Auto Scaling Group metrics show scaling activities and lifecycle hook status
+- Lambda function metrics indicate deregistration success rates and error patterns
+- Dead Letter Queue metrics show failed Lambda executions requiring investigation
+- EFS performance metrics monitor storage throughput and connection counts
+- SNS topic metrics track message delivery and failure rates
 
 ## Contributing
 
