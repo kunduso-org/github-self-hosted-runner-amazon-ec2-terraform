@@ -46,9 +46,7 @@ data "aws_iam_policy_document" "encrypt_sns" {
     principals {
       type = "Service"
       identifiers = [
-        "sns.amazonaws.com",
-        "autoscaling.amazonaws.com",
-        "lambda.amazonaws.com"
+        "sns.amazonaws.com"
       ]
     }
     actions = [
