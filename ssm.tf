@@ -50,3 +50,14 @@ resource "aws_ssm_parameter" "nat_gateway_public_ips" {
     Name = "${var.name}-ip-addresses"
   }
 }
+
+resource "aws_ssm_parameter" "deregistration_script" {
+  name   = "/${var.name}/deregistration-script"
+  type   = "SecureString"
+  value  = file("${path.module}/scripts/deregister-runner.sh")
+  key_id = aws_kms_key.ssm_parameters.arn
+
+  tags = {
+    Name = "${var.name}-deregistration-script"
+  }
+}

@@ -1,9 +1,9 @@
-resource "aws_cloudwatch_log_group" "github_runner" {
-  name              = "/github-runner/${var.name}/log"
-  retention_in_days = 365
+resource "aws_cloudwatch_log_group" "github_runner_lifecycle" {
+  name              = "/github-runner/${var.name}/lifecycle"
+  retention_in_days = 14
   kms_key_id        = aws_kms_key.cloudwatch_kms_key.arn
   tags = {
-    Name = "${var.name}-logs"
+    Name = "${var.name}-lifecycle-logs"
   }
   depends_on = [aws_kms_key.cloudwatch_kms_key]
 }
@@ -23,8 +23,8 @@ resource "aws_iam_policy" "cloudwatch_logs" {
           "logs:DescribeLogStreams"
         ]
         Resource = [
-          "${aws_cloudwatch_log_group.github_runner.arn}",
-          "${aws_cloudwatch_log_group.github_runner.arn}:*"
+          "${aws_cloudwatch_log_group.github_runner_lifecycle.arn}",
+          "${aws_cloudwatch_log_group.github_runner_lifecycle.arn}:*"
         ]
       },
       {

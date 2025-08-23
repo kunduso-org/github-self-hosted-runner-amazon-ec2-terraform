@@ -57,6 +57,20 @@ resource "aws_iam_policy" "github_runner" {
           "sts:AssumeRole"
         ]
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.name}-github-actions-runner-role"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter"
+        ]
+        Resource = aws_ssm_parameter.deregistration_script.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt"
+        ]
+        Resource = aws_kms_key.ssm_parameters.arn
       }
     ]
   })
@@ -115,12 +129,13 @@ resource "aws_launch_template" "github_runner" {
     name = aws_iam_instance_profile.github_runner.name
   }
 
-  user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    secret_name         = aws_secretsmanager_secret.github_runner_credentials.name
-    region              = var.region
-    github_organization = var.github_organization
-    efs_dns_name        = aws_efs_file_system.github_runner_work.dns_name
-    log_group_name      = aws_cloudwatch_log_group.github_runner.name
+  user_data = base64encode(templatefile("${path.module}/scripts/user_data.sh", {
+    secret_name              = aws_secretsmanager_secret.github_runner_credentials.name
+    region                   = var.region
+    github_organization      = var.github_organization
+    efs_dns_name             = aws_efs_file_system.github_runner_work.dns_name
+    lifecycle_log_group_name = aws_cloudwatch_log_group.github_runner_lifecycle.name
+    deregister_script_param  = aws_ssm_parameter.deregistration_script.name
   }))
 
   tag_specifications {

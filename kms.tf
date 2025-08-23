@@ -39,7 +39,9 @@ resource "aws_kms_key_policy" "encrypt_cloudwatch" {
         Resource : "*",
         Condition : {
           ArnEquals : {
-            "kms:EncryptionContext:aws:logs:arn" : [local.gh_runner_log_group_arn]
+            "kms:EncryptionContext:aws:logs:arn" : [
+              local.gh_runner_lifecycle_log_group_arn
+            ]
           }
         }
       }
