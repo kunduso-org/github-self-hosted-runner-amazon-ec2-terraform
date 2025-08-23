@@ -48,7 +48,7 @@ resource "aws_kms_key_policy" "encrypt_ssm" {
 
 resource "aws_ssm_parameter" "nat_gateway_public_ips" {
   name   = "/github-self-hosted-runner-ip-address"
-  type   = "StringList"
+  type   = "SecureString"
   value  = join(",", [for nat in module.vpc.nat_gateway : nat.public_ip])
   key_id = aws_kms_key.encrypt_ssm.arn
 
