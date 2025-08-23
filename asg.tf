@@ -71,6 +71,14 @@ resource "aws_iam_policy" "github_runner" {
           "kms:Decrypt"
         ]
         Resource = aws_kms_key.encrypt_ssm.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.encrypt_efs.arn
       }
     ]
   })
