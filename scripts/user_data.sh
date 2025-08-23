@@ -109,7 +109,6 @@ echo "$(date): Setting up EFS mount"
 mkdir -p /home/runner/_work
 echo "${efs_dns_name}:/ /home/runner/_work nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
 mount /home/runner/_work
-chown -R runner:runner /home/runner/_work
 echo "$(date): EFS mounted successfully"
 
 # Install Docker
@@ -130,7 +129,9 @@ echo "$(date): Terraform installed successfully"
 echo "$(date): Creating runner user"
 useradd -m -s /bin/bash runner
 usermod -aG docker runner
-echo "$(date): Runner user created successfully"
+# Fix EFS mount ownership
+chown -R runner:runner /home/runner/_work
+echo "$(date): Runner user created successfully and EFS ownership fixed"
 
 # Download GitHub Actions runner
 echo "$(date): Downloading GitHub Actions runner"
