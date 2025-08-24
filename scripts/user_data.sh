@@ -129,7 +129,9 @@ echo "$(date): Terraform installed successfully"
 echo "$(date): Creating runner user"
 useradd -m -s /bin/bash runner
 usermod -aG docker runner
-echo "$(date): Runner user created successfully"
+# Fix EFS mount ownership
+chown -R runner:runner /home/runner/_work
+echo "$(date): Runner user created successfully and EFS ownership fixed"
 
 # Download GitHub Actions runner
 echo "$(date): Downloading GitHub Actions runner"

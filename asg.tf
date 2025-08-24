@@ -70,7 +70,15 @@ resource "aws_iam_policy" "github_runner" {
         Action = [
           "kms:Decrypt"
         ]
-        Resource = aws_kms_key.ssm_parameters.arn
+        Resource = aws_kms_key.encrypt_ssm.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.encrypt_efs.arn
       }
     ]
   })
@@ -110,6 +118,10 @@ resource "aws_security_group_rule" "github_runner_egress" {
   cidr_blocks       = ["0.0.0.0/0"]
   description       = "Allow all outbound traffic"
   security_group_id = aws_security_group.github_runner.id
+  #checkov:skip=CKV_AWS_382: Ensure no security groups allow egress from 0.0.0.0:0 to port -1
+  #Reason: The Amazon EC2 instances require this to download packages
+  #Reason: The instances are sufficiently protected since they're in private subnet
+
 }
 
 resource "aws_launch_template" "github_runner" {

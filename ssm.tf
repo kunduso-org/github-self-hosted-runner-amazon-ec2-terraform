@@ -1,13 +1,24 @@
-data "aws_iam_policy_document" "ssm_kms" {
+#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key
+resource "aws_kms_key" "encrypt_ssm" {
+  enable_key_rotation     = true
+  description             = "Key to encrypt the ssm resource in ${var.name}."
+  deletion_window_in_days = 7
+}
+#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias
+resource "aws_kms_alias" "encrypt_ssm" {
+  name          = "alias/${var.name}-encrypt-ssm"
+  target_key_id = aws_kms_key.encrypt_ssm.key_id
+}
+data "aws_iam_policy_document" "encrypt_ssm" {
   statement {
     sid    = "Enable IAM User Permissions"
     effect = "Allow"
     principals {
       type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+      identifiers = ["${local.principal_root_arn}"]
     }
     actions   = ["kms:*"]
-    resources = ["*"]
+    resources = [aws_kms_key.encrypt_ssm.arn]
   }
 
   statement {
@@ -24,27 +35,22 @@ data "aws_iam_policy_document" "ssm_kms" {
       "kms:GenerateDataKey",
       "kms:ReEncrypt*"
     ]
-    resources = ["*"]
+    resources = [aws_kms_key.encrypt_ssm.arn]
   }
 }
 
-resource "aws_kms_key" "ssm_parameters" {
-  description             = "KMS key for SSM parameter encryption"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-  policy                  = data.aws_iam_policy_document.ssm_kms.json
-}
 
-resource "aws_kms_alias" "ssm_parameters" {
-  name          = "alias/${var.name}-ssm"
-  target_key_id = aws_kms_key.ssm_parameters.key_id
+#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy
+resource "aws_kms_key_policy" "encrypt_ssm" {
+  key_id = aws_kms_key.encrypt_ssm.id
+  policy = data.aws_iam_policy_document.encrypt_ssm.json
 }
 
 resource "aws_ssm_parameter" "nat_gateway_public_ips" {
   name   = "/github-self-hosted-runner-ip-address"
-  type   = "StringList"
+  type   = "SecureString"
   value  = join(",", [for nat in module.vpc.nat_gateway : nat.public_ip])
-  key_id = aws_kms_key.ssm_parameters.arn
+  key_id = aws_kms_key.encrypt_ssm.arn
 
   tags = {
     Name = "${var.name}-ip-addresses"
@@ -55,7 +61,7 @@ resource "aws_ssm_parameter" "deregistration_script" {
   name   = "/${var.name}/deregistration-script"
   type   = "SecureString"
   value  = file("${path.module}/scripts/deregister-runner.sh")
-  key_id = aws_kms_key.ssm_parameters.arn
+  key_id = aws_kms_key.encrypt_ssm.arn
 
   tags = {
     Name = "${var.name}-deregistration-script"

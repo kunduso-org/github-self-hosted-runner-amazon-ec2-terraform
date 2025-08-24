@@ -9,20 +9,40 @@ resource "aws_autoscaling_lifecycle_hook" "runner_termination" {
   role_arn                = aws_iam_role.lifecycle_hook.arn
 }
 
-# SNS topic for lifecycle notifications
-resource "aws_sns_topic" "runner_lifecycle" {
-  name = "${var.name}-lifecycle"
+
+resource "aws_security_group" "lambda" {
+  name        = "${var.name}-lambda-sg"
+  description = "Security group for Lambda function"
+  vpc_id      = module.vpc.vpc.id
+
+  tags = {
+    Name = "${var.name}-lambda-sg"
+  }
 }
 
+resource "aws_security_group_rule" "lambda_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Allow all outbound traffic for Lambda"
+  security_group_id = aws_security_group.lambda.id
+  #checkov:skip=CKV_AWS_382: Ensure no security groups allow egress from 0.0.0.0:0 to port -1
+  #Reason: The Lambda requires access to GitHub to run the deregister code
+  #Reason: The Lambda instances are sufficiently protected since they're in private subnet
+}
 # Lambda function for runner deregistration
 resource "aws_lambda_function" "runner_deregistration" {
-  filename      = "runner_deregistration.zip"
-  function_name = "${var.name}-deregistration"
-  role          = aws_iam_role.lambda_deregistration.arn
-  handler       = "index.handler"
-  runtime       = "python3.12"
-  timeout       = 60
-
+  filename                       = "runner_deregistration.zip"
+  function_name                  = "${var.name}-deregistration"
+  source_code_hash               = data.archive_file.lambda_zip.output_base64sha256
+  role                           = aws_iam_role.lambda_deregistration.arn
+  handler                        = "index.handler"
+  runtime                        = "python3.12"
+  timeout                        = 60
+  reserved_concurrent_executions = 5
+  kms_key_arn                    = aws_kms_key.encrypt_lambda.arn
   environment {
     variables = {
       SECRET_NAME         = aws_secretsmanager_secret.github_runner_credentials.name
@@ -31,14 +51,21 @@ resource "aws_lambda_function" "runner_deregistration" {
       LIFECYCLE_LOG_GROUP = aws_cloudwatch_log_group.github_runner_lifecycle.name
     }
   }
-
-  layers = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
-
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-
+  vpc_config {
+    subnet_ids         = [for subnet in module.vpc.private_subnets : subnet.id]
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+  tracing_config {
+    mode = "Active"
+  }
+  dead_letter_config {
+    target_arn = aws_sqs_queue.dlq.arn
+  }
+  layers     = [aws_lambda_layer_version.lambda_layer_pyjwt.arn]
   depends_on = [data.archive_file.lambda_zip]
+  #checkov:skip=CKV_AWS_272: Lambda function should be configured to validate code-signing
+  #Reason: Code signing not required for internal automation Lambda function
 }
-
 # Lambda deployment package (code only, dependencies in layer)
 data "archive_file" "lambda_zip" {
   type        = "zip"
@@ -47,22 +74,6 @@ data "archive_file" "lambda_zip" {
     content  = file("${path.module}/lambda_package/lambda_deregistration.py")
     filename = "index.py"
   }
-}
-
-# SNS subscription to Lambda
-resource "aws_sns_topic_subscription" "runner_lifecycle" {
-  topic_arn = aws_sns_topic.runner_lifecycle.arn
-  protocol  = "lambda"
-  endpoint  = aws_lambda_function.runner_deregistration.arn
-}
-
-# Lambda permission for SNS
-resource "aws_lambda_permission" "sns_invoke" {
-  statement_id  = "AllowExecutionFromSNS"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.runner_deregistration.function_name
-  principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.runner_lifecycle.arn
 }
 
 # IAM role for lifecycle hook
@@ -97,6 +108,17 @@ resource "aws_iam_role_policy" "lifecycle_hook" {
           "sns:Publish"
         ]
         Resource = aws_sns_topic.runner_lifecycle.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*"
+        ]
+        Resource = aws_kms_key.encrypt_sns.arn
       }
     ]
   })
@@ -118,6 +140,12 @@ resource "aws_iam_role" "lambda_deregistration" {
       }
     ]
   })
+}
+
+# AWS managed policy for Lambda VPC execution
+resource "aws_iam_role_policy_attachment" "lambda_vpc_execution" {
+  role       = aws_iam_role.lambda_deregistration.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 # Lambda IAM policy
@@ -143,7 +171,7 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = aws_secretsmanager_secret.github_runner_credentials.arn
+        Resource = [aws_secretsmanager_secret.github_runner_credentials.arn]
       },
       {
         Effect = "Allow"
@@ -167,8 +195,22 @@ resource "aws_iam_role_policy" "lambda_deregistration" {
         Action = [
           "autoscaling:CompleteLifecycleAction"
         ]
-        Resource = "*"
+        Resource = [aws_autoscaling_group.github_runner.arn]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:SendMessage"
+        ]
+        Resource = [aws_sqs_queue.dlq.arn]
       }
     ]
   })
+}
+
+#https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sqs_queue
+resource "aws_sqs_queue" "dlq" {
+  name                              = "${var.name}-lambda-dlq"
+  kms_master_key_id                 = aws_kms_key.encrypt_lambda.arn
+  kms_data_key_reuse_period_seconds = 300
 }

@@ -12,7 +12,6 @@ resource "aws_iam_role" "github_actions_runner" {
           AWS = aws_iam_role.github_runner.arn
         }
         Action = "sts:AssumeRole"
-
       }
     ]
   })
@@ -50,4 +49,5 @@ resource "aws_iam_role_policy_attachment" "github_actions_state" {
 resource "aws_iam_role_policy_attachment" "github_actions_admin" {
   role       = aws_iam_role.github_actions_runner.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  #checkov:skip=CKV_AWS_274:AdministratorAccess required for GitHub Actions to manage all infrastructure resources
 }
