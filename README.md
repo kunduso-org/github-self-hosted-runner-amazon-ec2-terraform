@@ -40,8 +40,8 @@ Before deploying this infrastructure, please ensure the following prerequisites 
 
 ### AWS Setup
 - An AWS account with appropriate permissions to create and manage the resources included in this repository
-- An OpenID Connect identity provider created in AWS IAM with a trust relationship to this GitHub repository ([detailed setup guide](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html))
-- The ARN of the IAM Role stored as a GitHub secret for use in the `terraform.yml`` workflow
+- An OpenID Connect identity provider created in AWS IAM with a trust relationship to this GitHub repository ([detailed setup guide](https://skundunotes.com/2023/02/28/securely-integrate-aws-credentials-with-github-actions-using-openid-connect/))
+- The ARN of the IAM Role stored as a GitHub secret for use in the `terraform.yml` workflow and referred via `${{ secrets.IAM_ROLE }}`.
 
 ### GitHub Setup
 - A GitHub organization where the self-hosted runners will be registered
@@ -56,50 +56,89 @@ Before deploying this infrastructure, please ensure the following prerequisites 
 
 ## Usage
 
-This infrastructure is deployed automatically using GitHub Actions. The deployment process is triggered by pushes to the main branch.
+This infrastructure is deployed automatically using the GitHub Actions workflow defined in `.github/workflows/terraform.yml`. The workflow provides complete CI/CD automation with security scanning, cost estimation, and infrastructure deployment.
 
-### 1. Configure Variables
-Update the `terraform.tfvars` file with your specific configuration:
-```hcl
-region = "us-west-2"
-name = "github-self-hosted-runner"
-github_organization = "your-org-name"
-runner_instance_type = "t3.medium"
-runner_min_size = 1
-runner_max_size = 5
-runner_desired_capacity = 2
-```
+### Automated Deployment Pipeline
 
-### 2. Store GitHub App Credentials
-Create a secret in AWS Secrets Manager with the following JSON structure:
+The `terraform.yml` workflow includes the following automated stages:
+
+#### 1. **Terraform Validation and Planning**
+- **Terraform Format Check**: Ensures code follows canonical formatting
+- **Terraform Validation**: Validates configuration syntax and logic
+- **Terraform Plan**: Generates execution plan showing proposed changes
+- **Plan Output**: Posts detailed plan as PR comment for review
+
+#### 2. **Security and Cost Analysis**
+- **Checkov Security Scan**: Identifies security misconfigurations and compliance issues
+- **Infracost Analysis**: Provides cost estimates for infrastructure changes
+- **Cost Comparison**: Shows cost diff between current and proposed infrastructure
+
+#### 3. **Automated Deployment**
+- **Trigger**: Automatically deploys on pushes to `main` branch
+- **Authentication**: Uses OIDC for secure, temporary AWS credentials
+- **Terraform Apply**: Provisions infrastructure with GitHub App credentials
+- **State Management**: Maintains Terraform state in remote backend
+
+### Configuration Steps
+
+#### 1. Configure GitHub Secrets
+Set up the following secrets in your GitHub repository:
+- `IAM_ROLE`: ARN of the OIDC-assumable IAM role
+- `THIS_GITHUB_APP_ID`: GitHub App ID for runner authentication
+- `THIS_GITHUB_INSTALLATION_ID`: GitHub App Installation ID
+- `THIS_GITHUB_PRIVATE_KEY`: GitHub App private key
+- `INFRACOST_API_KEY`: API key for cost estimation (optional)
+
+#### 2. Store GitHub App Credentials in AWS
+Create a secret in AWS Secrets Manager with GitHub App credentials:
 ```json
 {
   "app_id": "123456",
   "installation_id": "12345678",
-  "private_key": ""
+  "private_key": "the-private-key"
 }
 ```
 
-### 3. Deploy Infrastructure
-Push changes to the main branch to trigger the GitHub Actions workflow. The pipeline will automatically:
-- Initialize Terraform
-- Plan the infrastructure changes
-- Apply the changes to AWS
-- Run security scans with Checkov
+### Deployment Process
 
-### 4. Monitor Deployment
-- Check the GitHub Actions workflow logs by clicking the terraform-infra-provisioning badge above
-- Monitor runner registration in your GitHub organization's Actions settings
-- View lifecycle logs in CloudWatch under `/{name}/lifecycle`
+#### Pull Request Workflow
+1. **Create Feature Branch**: Make changes in a feature branch
+2. **Open Pull Request**: Triggers validation, security scan, and cost analysis
+3. **Review Automation**: 
+   - Terraform plan posted as PR comment
+   - Checkov findings displayed in PR
+   - Infracost analysis shows cost impact
+4. **Merge to Main**: Triggers automatic deployment
+
+#### Production Deployment
+1. **Automatic Trigger**: Merge to `main` branch starts deployment
+2. **Secure Authentication**: OIDC provides temporary AWS credentials
+3. **Infrastructure Provisioning**: Terraform applies changes to AWS
+4. **Validation**: Deployment success confirmed through workflow logs
+
+### Monitoring and Validation
+
+#### Deployment Status
+- **Workflow Badge**: Click the terraform-infra-provisioning badge above for real-time status
+- **GitHub Actions Logs**: Detailed logs available in the Actions tab
+- **Terraform State**: Remote state tracks all deployed resources
+
+#### Runner Validation
+- **GitHub Organization**: Verify runners appear in Actions settings
+- **CloudWatch Logs**: Monitor registration process in `/{name}/lifecycle` log group
+- **Auto Scaling Group**: Check EC2 instances are launching successfully
+- **EFS Mount**: Verify shared workspace storage is accessible
 
 ## Configuration
 
 ### Key Variables
-- `region`: AWS region for deployment
-- `name`: Prefix for all resource names
-- `github_organization`: GitHub organization name
-- `runner_instance_type`: EC2 instance type for runners
-- `runner_min_size`: Minimum number of runners
+The infrastructure can be customized by modifying the default values in `variables.tf`:
+
+- `region`: AWS region for deployment (default: "us-west-2")
+- `name`: Prefix for all resource names (default: "github-self-hosted-runner")
+- `github_organization`: GitHub organization name (must be updated)
+- `runner_instance_type`: EC2 instance type for runners (default: "t3.medium")
+- `runner_min_size`: Minimum number of runners (default: 1)
 - `runner_max_size`: Maximum number of runners
 - `runner_desired_capacity`: Desired number of runners
 
