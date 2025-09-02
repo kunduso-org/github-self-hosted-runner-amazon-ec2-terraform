@@ -8,6 +8,18 @@ This repository contains Terraform infrastructure code to deploy scalable, self-
 
 For a comprehensive step-by-step guide with detailed explanations, please refer to the complete blog post: [Build Secure GitHub Self-Hosted Runners on Amazon EC2 with Terraform](https://skundunotes.com/2025/09/02/build-secure-github-self-hosted-runners-on-amazon-ec2-with-terraform/).
 
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Security Considerations](#security-considerations)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Features
 
 - **High Availability**: Maintains consistent runner capacity using AWS Auto Scaling Groups with automatic instance replacement across multiple Availability Zones
@@ -85,40 +97,12 @@ The `terraform.yml` workflow includes the following automated stages:
 
 ### Configuration Steps
 
-#### 1. Configure GitHub Secrets
 Set up the following secrets in your GitHub repository:
 - `IAM_ROLE`: ARN of the OIDC-assumable IAM role
 - `THIS_GITHUB_APP_ID`: GitHub App ID for runner authentication
 - `THIS_GITHUB_INSTALLATION_ID`: GitHub App Installation ID
 - `THIS_GITHUB_PRIVATE_KEY`: GitHub App private key
 - `INFRACOST_API_KEY`: API key for cost estimation (optional)
-
-#### 2. Store GitHub App Credentials in AWS
-Create a secret in AWS Secrets Manager with GitHub App credentials:
-```json
-{
-  "app_id": "123456",
-  "installation_id": "12345678",
-  "private_key": "the-private-key"
-}
-```
-
-### Deployment Process
-
-#### Pull Request Workflow
-1. **Create Feature Branch**: Make changes in a feature branch
-2. **Open Pull Request**: Triggers validation, security scan, and cost analysis
-3. **Review Automation**: 
-   - Terraform plan posted as PR comment
-   - Checkov findings displayed in PR
-   - Infracost analysis shows cost impact
-4. **Merge to Main**: Triggers automatic deployment
-
-#### Production Deployment
-1. **Automatic Trigger**: Merge to `main` branch starts deployment
-2. **Secure Authentication**: OIDC provides temporary AWS credentials
-3. **Infrastructure Provisioning**: Terraform applies changes to AWS
-4. **Validation**: Deployment success confirmed through workflow logs
 
 ### Monitoring and Validation
 
@@ -146,14 +130,6 @@ The infrastructure can be customized by modifying the default values in `variabl
 - `runner_max_size`: Maximum number of runners in Auto Scaling Group (default: 3)
 - `runner_desired_capacity`: Desired number of runners (default: 1)
 
-### Logging Structure
-The solution provides unified logging with the following structure:
-```
-/{name}/lifecycle/
-├── {instance-id}/registration
-├── {instance-id}/execution
-└── {instance-id}/deregistration
-```
 
 ## Security Considerations
 
