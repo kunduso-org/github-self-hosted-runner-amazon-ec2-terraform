@@ -6,6 +6,20 @@
 
 This repository contains Terraform infrastructure code to deploy scalable, self-hosted GitHub Actions runners on Amazon EC2 instances. The solution provides automated runner provisioning, lifecycle management, and secure deregistration using AWS Auto Scaling Groups, Lambda functions, and CloudWatch logging.
 
+For a comprehensive step-by-step guide with detailed explanations, please refer to the complete blog post: [Build Secure GitHub Self-Hosted Runners on Amazon EC2 with Terraform](https://skundunotes.com/2025/09/02/build-secure-github-self-hosted-runners-on-amazon-ec2-with-terraform/).
+
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Security Considerations](#security-considerations)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Features
 
 - **High Availability**: Maintains consistent runner capacity using AWS Auto Scaling Groups with automatic instance replacement across multiple Availability Zones
@@ -19,6 +33,8 @@ This repository contains Terraform infrastructure code to deploy scalable, self-
 - **Cost Optimization**: EFS storage for shared runner workspace and dependency caching to reduce startup time
 
 ## Architecture
+
+![Solution Architecture Diagram](https://skdevops.wordpress.com/wp-content/uploads/2025/08/118-image-1-1.png)
 
 The solution deploys:
 - **VPC with public/private subnets** across multiple Availability Zones
@@ -69,7 +85,7 @@ The `terraform.yml` workflow includes the following automated stages:
 - **Plan Output**: Posts detailed plan as PR comment for review
 
 #### 2. **Security and Cost Analysis**
-- **Checkov Security Scan**: Identifies security misconfigurations and compliance issues
+- **Checkov Security Scan**: Runs in separate `code-scan.yml` workflow to identify security misconfigurations and compliance issues
 - **Infracost Analysis**: Provides cost estimates for infrastructure changes
 - **Cost Comparison**: Shows cost diff between current and proposed infrastructure
 
@@ -81,40 +97,12 @@ The `terraform.yml` workflow includes the following automated stages:
 
 ### Configuration Steps
 
-#### 1. Configure GitHub Secrets
 Set up the following secrets in your GitHub repository:
 - `IAM_ROLE`: ARN of the OIDC-assumable IAM role
 - `THIS_GITHUB_APP_ID`: GitHub App ID for runner authentication
 - `THIS_GITHUB_INSTALLATION_ID`: GitHub App Installation ID
 - `THIS_GITHUB_PRIVATE_KEY`: GitHub App private key
 - `INFRACOST_API_KEY`: API key for cost estimation (optional)
-
-#### 2. Store GitHub App Credentials in AWS
-Create a secret in AWS Secrets Manager with GitHub App credentials:
-```json
-{
-  "app_id": "123456",
-  "installation_id": "12345678",
-  "private_key": "the-private-key"
-}
-```
-
-### Deployment Process
-
-#### Pull Request Workflow
-1. **Create Feature Branch**: Make changes in a feature branch
-2. **Open Pull Request**: Triggers validation, security scan, and cost analysis
-3. **Review Automation**: 
-   - Terraform plan posted as PR comment
-   - Checkov findings displayed in PR
-   - Infracost analysis shows cost impact
-4. **Merge to Main**: Triggers automatic deployment
-
-#### Production Deployment
-1. **Automatic Trigger**: Merge to `main` branch starts deployment
-2. **Secure Authentication**: OIDC provides temporary AWS credentials
-3. **Infrastructure Provisioning**: Terraform applies changes to AWS
-4. **Validation**: Deployment success confirmed through workflow logs
 
 ### Monitoring and Validation
 
@@ -138,18 +126,10 @@ The infrastructure can be customized by modifying the default values in `variabl
 - `name`: Prefix for all resource names (default: "github-self-hosted-runner")
 - `github_organization`: GitHub organization name (must be updated)
 - `runner_instance_type`: EC2 instance type for runners (default: "t3.medium")
-- `runner_min_size`: Minimum number of runners (default: 1)
-- `runner_max_size`: Maximum number of runners
-- `runner_desired_capacity`: Desired number of runners
+- `runner_min_size`: Minimum number of runners in Auto Scaling Group (default: 1)
+- `runner_max_size`: Maximum number of runners in Auto Scaling Group (default: 3)
+- `runner_desired_capacity`: Desired number of runners (default: 1)
 
-### Logging Structure
-The solution provides unified logging with the following structure:
-```
-/{name}/lifecycle/
-├── {instance-id}/registration
-├── {instance-id}/execution
-└── {instance-id}/deregistration
-```
 
 ## Security Considerations
 
@@ -167,14 +147,30 @@ The solution provides unified logging with the following structure:
 ## Troubleshooting
 
 ### Common Issues
-1. **Runner registration failures**: Check GitHub App permissions and credentials in Secrets Manager
-2. **Instance launch failures**: Verify VPC configuration and security group rules
-3. **Deregistration issues**: Check Lambda function logs in CloudWatch and dead letter queue messages
-4. **Network connectivity**: Ensure NAT Gateway is properly configured for private subnet internet access
-5. **Lambda deregistration failures**: Check Lambda function logs, VPC configuration, and GitHub API connectivity
-6. **EFS mount issues**: Verify NFS security group rules and mount target availability in all AZs
-7. **Lifecycle hook timeouts**: Check 5-minute timeout configuration and Lambda function performance metrics
-8. **SNS delivery failures**: Verify SNS topic permissions and Lambda subscription configuration
+
+#### Runners Not Appearing in GitHub
+- Verify GitHub App permissions are correctly configured
+- Check CloudWatch logs in `/{name}/lifecycle` log group for registration errors
+- Ensure GitHub App credentials in Secrets Manager are valid
+- Confirm the `github_organization` variable matches your GitHub organization name
+
+#### EC2 Instances Failing to Launch
+- Check Auto Scaling Group events in AWS Console
+- Verify VPC and subnet configuration
+- Ensure IAM roles have necessary permissions
+- Review user data script execution in EC2 instance logs
+
+#### Lambda Function Errors
+- Check Lambda function logs in CloudWatch
+- Verify Dead Letter Queue for failed invocations
+- Ensure Lambda has network access to GitHub API
+- Confirm GitHub App credentials are accessible from Lambda
+
+#### Network Connectivity Issues
+- Ensure NAT Gateway is properly configured for private subnet internet access
+- Verify NFS security group rules for EFS mount targets
+- Check lifecycle hook timeout configuration (5-minute default)
+- Verify SNS topic permissions and Lambda subscription configuration
 
 ### Monitoring
 - CloudWatch logs provide detailed lifecycle tracking with structured format
@@ -200,8 +196,6 @@ Please ensure that:
 - Security considerations are addressed
 - Documentation is updated for any new features
 
-If you find any issues or have suggestions for improvement, please feel free to open an issue.
-
 ## License
 
-This code is released under the Unlicense License. See [LICENSE](LICENSE) for details. 
+This code is released under the Unlicense License. See [LICENSE](LICENSE) for details.
