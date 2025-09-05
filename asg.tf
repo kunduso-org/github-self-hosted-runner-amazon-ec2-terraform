@@ -63,20 +63,6 @@ resource "aws_iam_policy" "github_runner" {
       {
         Effect = "Allow"
         Action = [
-          "ssm:GetParameter"
-        ]
-        Resource = aws_ssm_parameter.deregistration_script.arn
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt"
-        ]
-        Resource = aws_kms_key.encrypt_ssm.arn
-      },
-      {
-        Effect = "Allow"
-        Action = [
           "kms:Decrypt",
           "kms:DescribeKey"
         ]
@@ -149,7 +135,6 @@ resource "aws_launch_template" "github_runner" {
     github_organization      = var.github_organization
     efs_dns_name             = aws_efs_file_system.github_runner_work.dns_name
     lifecycle_log_group_name = aws_cloudwatch_log_group.github_runner_lifecycle.name
-    deregister_script_param  = aws_ssm_parameter.deregistration_script.name
   }))
 
   tag_specifications {
