@@ -31,7 +31,9 @@ resource "aws_iam_policy" "github_runner" {
       {
         Effect = "Allow"
         Action = [
-          "secretsmanager:GetSecretValue"
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:ListSecrets",
+          "secretsmanager:DescribeSecret"
         ]
         Resource = aws_secretsmanager_secret.github_runner_credentials.arn
       },
