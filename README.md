@@ -24,7 +24,7 @@ For a comprehensive step-by-step guide with detailed explanations, please refer 
 
 - **High Availability**: Maintains consistent runner capacity using AWS Auto Scaling Groups with automatic instance replacement across multiple Availability Zones
 - **Secure Authentication**: Uses GitHub App authentication for secure API access
-- **Automated Lifecycle Management**: Automatic runner registration and deregistration using Lambda functions
+- **Automated Lifecycle Management**: Automatic runner registration via user data script and deregistration using Lambda functions
 - **Automated Deregistration**: Prevents orphaned runners in GitHub organization using lifecycle hooks and Lambda functions
 - **Unified Logging**: Centralized CloudWatch logging for complete runner lifecycle tracking
 - **Network Security**: Runs in private subnets with NAT Gateway for outbound internet access
@@ -47,7 +47,7 @@ The solution deploys:
 - **EFS file system** for shared runner workspace storage with optimized NFS parameters
 - **CloudWatch log groups** for unified lifecycle logging with structured format
 - **Secrets Manager** for secure GitHub App credentials storage
-- **SSM Parameter Store** for runner configuration scripts
+- **SSM Parameter Store** for NAT Gateway IP addresses
 
 ## Prerequisites
 
