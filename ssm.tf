@@ -61,7 +61,7 @@ resource "aws_ssm_parameter" "deregistration_script" {
   name = "/${var.name}/deregistration-script"
   type = "SecureString"
   value = templatefile("${path.module}/scripts/deregister-runner.sh", {
-    secret_name         = aws_secretsmanager_secret.github_app_credentials.name
+    secret_name         = aws_secretsmanager_secret.github_runner_credentials.name
     region              = var.region
     github_organization = var.github_organization
   })
