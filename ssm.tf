@@ -58,11 +58,14 @@ resource "aws_ssm_parameter" "nat_gateway_public_ips" {
 }
 
 resource "aws_ssm_parameter" "deregistration_script" {
-  name   = "/${var.name}/deregistration-script"
-  type   = "SecureString"
-  value  = file("${path.module}/scripts/deregister-runner.sh")
+  name = "/${var.name}/deregistration-script"
+  type = "SecureString"
+  value = templatefile("${path.module}/scripts/deregister-runner.sh", {
+    secret_name         = aws_secretsmanager_secret.github_app_credentials.name
+    region              = var.region
+    github_organization = var.github_organization
+  })
   key_id = aws_kms_key.encrypt_ssm.arn
-
   tags = {
     Name = "${var.name}-deregistration-script"
   }
